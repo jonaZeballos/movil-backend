@@ -1,16 +1,12 @@
 const express = require('express');
-const holaRoutes = require('./routes/hola.routes');
+const routes = require('./routes');
+const { notFoundMiddleware, errorMiddleware } = require('./middlewares');
 
 const app = express();
 
 app.use(express.json());
-
-app.get('/', (req, res) => {
-  res.json({
-    mensaje: 'API de Express funcionando correctamente',
-  });
-});
-
-app.use('/api', holaRoutes);
+app.use(routes);
+app.use(notFoundMiddleware);
+app.use(errorMiddleware);
 
 module.exports = app;
