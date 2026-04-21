@@ -1,4 +1,5 @@
 const { Router } = require('express');
+const usuarioRoutes = require('./usuario.routes');
 
 const router = Router();
 
@@ -7,5 +8,7 @@ router.get('/', (req, res) => {
     mensaje: 'API funcionando',
   });
 });
+
+router.use('/api/usuarios', usuarioRoutes);
 
 module.exports = router;
