@@ -1,5 +1,7 @@
 const { randomUUID } = require('crypto');
 const AppError = require('../utils/appError');
+const { hashPassword, verifyPassword } = require('../utils/password');
+const { signToken } = require('../utils/token');
 const usuarioRepository = require('../repositories/usuario.repository');
 
 function normalizeText(value, fieldName) {
@@ -77,7 +79,7 @@ async function registrarUsuario(payload) {
     apellidos,
     username,
     email,
-    password,
+    password: hashPassword(password),
     fechaCreacion,
     idRol,
     telefonos: {
@@ -95,6 +97,42 @@ async function registrarUsuario(payload) {
   };
 }
 
+async function loginUsuario(payload) {
+  const identifier = normalizeText(payload.usuario ?? payload.username ?? payload.email, 'usuario');
+  const password = normalizeText(payload.password, 'password');
+
+  const user = await usuarioRepository.findByUsernameOrEmailForLogin(identifier);
+  if (!user || !verifyPassword(password, user.password)) {
+    throw new AppError('Usuario o password incorrectos', 401);
+  }
+
+  const tipoUsuario = user.rol ? user.rol.rol : null;
+  const usuario = {
+    id: user.id,
+    nombres: user.nombres,
+    apellidos: user.apellidos,
+    username: user.username,
+    email: user.email,
+    fechaCreacion: user.fechaCreacion,
+    tipoUsuario,
+    rol: tipoUsuario,
+  };
+
+  const token = signToken({
+    sub: user.id,
+    username: user.username,
+    email: user.email,
+    tipoUsuario,
+    rol: tipoUsuario,
+  });
+
+  return {
+    token,
+    usuario,
+  };
+}
+
 module.exports = {
   registrarUsuario,
+  loginUsuario,
 };

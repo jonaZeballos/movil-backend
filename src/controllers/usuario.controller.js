@@ -13,6 +13,20 @@ async function registrarUsuario(req, res, next) {
   }
 }
 
+async function loginUsuario(req, res, next) {
+  try {
+    const login = await usuarioService.loginUsuario(req.body);
+
+    return res.json({
+      mensaje: 'Login correcto',
+      data: login,
+    });
+  } catch (error) {
+    return next(error);
+  }
+}
+
 module.exports = {
   registrarUsuario,
+  loginUsuario,
 };

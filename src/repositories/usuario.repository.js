@@ -13,6 +13,28 @@ function findByUsernameOrEmail(username, email) {
   });
 }
 
+function findByUsernameOrEmailForLogin(identifier) {
+  return prisma.usuario.findFirst({
+    where: {
+      OR: [{ username: identifier }, { email: identifier }],
+    },
+    select: {
+      id: true,
+      nombres: true,
+      apellidos: true,
+      username: true,
+      email: true,
+      password: true,
+      fechaCreacion: true,
+      rol: {
+        select: {
+          rol: true,
+        },
+      },
+    },
+  });
+}
+
 function findRoleByName(roleName) {
   return prisma.rol.findFirst({
     where: { rol: roleName },
@@ -57,6 +79,7 @@ function createUserWithPhone(data) {
 
 module.exports = {
   findByUsernameOrEmail,
+  findByUsernameOrEmailForLogin,
   findRoleByName,
   createRole,
   createUserWithPhone,
