@@ -32,6 +32,52 @@ function signToken(payload, options = {}) {
   return `${unsignedToken}.${signature}`;
 }
 
+function parseBase64UrlJson(value) {
+  try {
+    const decoded = Buffer.from(value, 'base64url').toString('utf8');
+    return JSON.parse(decoded);
+  } catch (error) {
+    throw new AppError('Token invalido', 401);
+  }
+}
+
+function verifyToken(token) {
+  if (!token || typeof token !== 'string') {
+    throw new AppError('Token invalido', 401);
+  }
+
+  const parts = token.split('.');
+  if (parts.length !== 3) {
+    throw new AppError('Token invalido', 401);
+  }
+
+  const [encodedHeader, encodedPayload, encodedSignature] = parts;
+  const unsignedToken = `${encodedHeader}.${encodedPayload}`;
+  const expectedSignature = createHmac('sha256', getJwtSecret()).update(unsignedToken).digest('base64url');
+
+  if (encodedSignature !== expectedSignature) {
+    throw new AppError('Token invalido', 401);
+  }
+
+  const header = parseBase64UrlJson(encodedHeader);
+  if (header.alg !== 'HS256' || header.typ !== 'JWT') {
+    throw new AppError('Token invalido', 401);
+  }
+
+  const payload = parseBase64UrlJson(encodedPayload);
+  if (!payload.exp || typeof payload.exp !== 'number') {
+    throw new AppError('Token invalido', 401);
+  }
+
+  const now = Math.floor(Date.now() / 1000);
+  if (payload.exp <= now) {
+    throw new AppError('Token expirado', 401);
+  }
+
+  return payload;
+}
+
 module.exports = {
   signToken,
+  verifyToken,
 };
