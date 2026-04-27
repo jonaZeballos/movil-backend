@@ -31,9 +31,20 @@ model Usuario {
   idRol String? @db.VarChar(1000) @map("id_rol")
   rol   Rol?    @relation(fields: [idRol], references: [id])
 
+  cliente Cliente?
   telefonos Telefono[]
 
   @@map("usuario")
+}
+
+model Cliente {
+  idUsuario       String  @id @db.VarChar(1000) @map("id_usuario")
+  razonSocial     String  @db.VarChar(100) @map("razon_social")
+  numeroDocumento BigInt  @unique @db.BigInt @map("numero_documento")
+
+  usuario Usuario @relation(fields: [idUsuario], references: [id], onDelete: Cascade)
+
+  @@map("cliente")
 }
 
 model Telefono {

@@ -29,6 +29,18 @@ function parsePhoneNumber(value) {
   }
 }
 
+function parseDocumentNumber(value) {
+  if (value === undefined || value === null || value === '') {
+    throw new AppError('El campo numeroDocumento es obligatorio', 400);
+  }
+
+  try {
+    return BigInt(value);
+  } catch (error) {
+    throw new AppError('El campo numeroDocumento debe ser numerico', 400);
+  }
+}
+
 function parseCreationDate(value) {
   if (!value) {
     throw new AppError('El campo fechaCreacion es obligatorio', 400);
@@ -106,6 +118,69 @@ async function registrarUsuarioTecnico(payload) {
   return registrarUsuarioConRol(payload, 'tecnico');
 }
 
+async function registrarUsuarioCliente(payload) {
+  const nombres = normalizeText(payload.nombres, 'nombres');
+  const apellidos = normalizeText(payload.apellidos, 'apellidos');
+  const username = normalizeText(payload.username, 'username');
+  const email = normalizeText(payload.email, 'email');
+  const password = normalizeText(payload.password, 'password');
+  const fechaCreacion = parseCreationDate(payload.fechaCreacion);
+  const numero = parsePhoneNumber(payload.numero);
+  const razonSocial = normalizeText(payload.razonSocial, 'razonSocial');
+  const numeroDocumento = parseDocumentNumber(payload.numeroDocumento);
+
+  const [existingUser, existingClient] = await Promise.all([
+    usuarioRepository.findByUsernameOrEmail(username, email),
+    usuarioRepository.findClientByDocumentNumber(numeroDocumento),
+  ]);
+
+  if (existingUser) {
+    throw new AppError('Ya existe un usuario con ese username o email', 409);
+  }
+
+  if (existingClient) {
+    throw new AppError('Ya existe un cliente con ese numeroDocumento', 409);
+  }
+
+  const idRol = await getRoleId('cliente');
+
+  const createdUser = await usuarioRepository.createClientUser({
+    id: randomUUID(),
+    nombres,
+    apellidos,
+    username,
+    email,
+    password: hashPassword(password),
+    fechaCreacion,
+    idRol,
+    telefonos: {
+      create: {
+        id: randomUUID(),
+        numero,
+      },
+    },
+    cliente: {
+      create: {
+        razonSocial,
+        numeroDocumento,
+      },
+    },
+  });
+
+  return {
+    id: createdUser.id,
+    nombres: createdUser.nombres,
+    apellidos: createdUser.apellidos,
+    username: createdUser.username,
+    email: createdUser.email,
+    fechaCreacion: createdUser.fechaCreacion,
+    rol: createdUser.rol ? createdUser.rol.rol : null,
+    numero: numero.toString(),
+    razonSocial: createdUser.cliente ? createdUser.cliente.razonSocial : null,
+    numeroDocumento: createdUser.cliente ? createdUser.cliente.numeroDocumento.toString() : null,
+  };
+}
+
 async function loginUsuario(payload) {
   const identifier = normalizeText(payload.usuario ?? payload.username ?? payload.email, 'usuario');
   const password = normalizeText(payload.password, 'password');
@@ -144,5 +219,6 @@ async function loginUsuario(payload) {
 module.exports = {
   registrarUsuario,
   registrarUsuarioTecnico,
+  registrarUsuarioCliente,
   loginUsuario,
 };
