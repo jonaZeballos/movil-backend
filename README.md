@@ -66,3 +66,4 @@ movil-express/
 
 - crea archivos por feature con nombres como `user.controller.js`, `user.service.js` y `user.repository.js`
 - no agregues carpetas nuevas hasta que exista una necesidad real
+asdasdasdasdasdasd
