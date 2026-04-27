@@ -56,6 +56,12 @@ movil-express/
 - Para `POST /api/usuarios/registro-tecnico`, primero haz login en `POST /api/usuarios/login`.
 - Copia el token y usa el boton **Authorize** en Swagger con formato: `Bearer TU_TOKEN`.
 
+## Deploy en Vercel
+
+- El proyecto usa `api/index.js` como entrypoint serverless para Vercel.
+- `vercel.json` redirige todas las rutas al backend Express.
+- Swagger queda disponible en deploy en: `/api-docs`.
+
 ## Regla para crecer
 
 - crea archivos por feature con nombres como `user.controller.js`, `user.service.js` y `user.repository.js`
