@@ -56,7 +56,7 @@ async function getRoleId(roleName) {
   return createdRole.id;
 }
 
-async function registrarUsuario(payload) {
+async function registrarUsuarioConRol(payload, roleName) {
   const nombres = normalizeText(payload.nombres, 'nombres');
   const apellidos = normalizeText(payload.apellidos, 'apellidos');
   const username = normalizeText(payload.username, 'username');
@@ -64,14 +64,14 @@ async function registrarUsuario(payload) {
   const password = normalizeText(payload.password, 'password');
   const fechaCreacion = parseCreationDate(payload.fechaCreacion);
   const numero = parsePhoneNumber(payload.numero);
-  const roleName = payload.rol ? normalizeText(payload.rol, 'rol') : null;
+  const normalizedRoleName = roleName ? normalizeText(roleName, 'rol') : null;
 
   const userExists = await usuarioRepository.findByUsernameOrEmail(username, email);
   if (userExists) {
     throw new AppError('Ya existe un usuario con ese username o email', 409);
   }
 
-  const idRol = await getRoleId(roleName);
+  const idRol = await getRoleId(normalizedRoleName);
 
   const createdUser = await usuarioRepository.createUserWithPhone({
     id: randomUUID(),
@@ -95,6 +95,15 @@ async function registrarUsuario(payload) {
     rol: createdUser.rol ? createdUser.rol.rol : null,
     numero: numero.toString(),
   };
+}
+
+async function registrarUsuario(payload) {
+  const roleName = payload.rol ? normalizeText(payload.rol, 'rol') : null;
+  return registrarUsuarioConRol(payload, roleName);
+}
+
+async function registrarUsuarioTecnico(payload) {
+  return registrarUsuarioConRol(payload, 'tecnico');
 }
 
 async function loginUsuario(payload) {
@@ -134,5 +143,6 @@ async function loginUsuario(payload) {
 
 module.exports = {
   registrarUsuario,
+  registrarUsuarioTecnico,
   loginUsuario,
 };
