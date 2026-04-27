@@ -77,10 +77,49 @@ function createUserWithPhone(data) {
   });
 }
 
+function findClientByDocumentNumber(numeroDocumento) {
+  return prisma.cliente.findUnique({
+    where: {
+      numeroDocumento,
+    },
+    select: {
+      idUsuario: true,
+      numeroDocumento: true,
+    },
+  });
+}
+
+function createClientUser(data) {
+  return prisma.usuario.create({
+    data,
+    select: {
+      id: true,
+      nombres: true,
+      apellidos: true,
+      username: true,
+      email: true,
+      fechaCreacion: true,
+      rol: {
+        select: {
+          rol: true,
+        },
+      },
+      cliente: {
+        select: {
+          razonSocial: true,
+          numeroDocumento: true,
+        },
+      },
+    },
+  });
+}
+
 module.exports = {
   findByUsernameOrEmail,
   findByUsernameOrEmailForLogin,
   findRoleByName,
   createRole,
   createUserWithPhone,
+  findClientByDocumentNumber,
+  createClientUser,
 };
