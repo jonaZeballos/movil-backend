@@ -40,6 +40,22 @@ movil-express/
 
 - `GET /`: responde que la API esta funcionando
 
+## Documentacion OpenAPI (Swagger)
+
+- UI Swagger: `GET /api-docs`
+- JSON OpenAPI: `GET /api-docs.json`
+
+### Uso rapido
+
+1. Inicia el proyecto con `npm run dev`.
+2. Abre `http://localhost:3000/api-docs`.
+3. Prueba endpoints desde la UI.
+
+### Endpoint protegido con Bearer
+
+- Para `POST /api/usuarios/registro-tecnico`, primero haz login en `POST /api/usuarios/login`.
+- Copia el token y usa el boton **Authorize** en Swagger con formato: `Bearer TU_TOKEN`.
+
 ## Regla para crecer
 
 - crea archivos por feature con nombres como `user.controller.js`, `user.service.js` y `user.repository.js`
