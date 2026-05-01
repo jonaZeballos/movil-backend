@@ -26,6 +26,19 @@ async function registrarUsuarioTecnico(req, res, next) {
   }
 }
 
+async function registrarUsuarioVentas(req, res, next) {
+  try {
+    const usuario = await usuarioService.registrarUsuarioVentas(req.body);
+
+    return res.status(201).json({
+      mensaje: 'Usuario de ventas registrado correctamente',
+      data: usuario,
+    });
+  } catch (error) {
+    return next(error);
+  }
+}
+
 async function registrarUsuarioCliente(req, res, next) {
   try {
     const usuario = await usuarioService.registrarUsuarioCliente(req.body);
@@ -55,6 +68,7 @@ async function loginUsuario(req, res, next) {
 module.exports = {
   registrarUsuario,
   registrarUsuarioTecnico,
+  registrarUsuarioVentas,
   registrarUsuarioCliente,
   loginUsuario,
 };

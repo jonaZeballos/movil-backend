@@ -43,7 +43,7 @@ function parseDocumentNumber(value) {
 
 function parseCreationDate(value) {
   if (!value) {
-    throw new AppError('El campo fechaCreacion es obligatorio', 400);
+    return new Date();
   }
 
   const date = new Date(value);
@@ -52,6 +52,14 @@ function parseCreationDate(value) {
   }
 
   return date;
+}
+
+function splitName(fullName) {
+  const parts = fullName.trim().split(/\s+/);
+  const nombres = parts.slice(0, -1).join(' ') || parts[0];
+  const apellidos = parts.length > 1 ? parts.slice(-1).join(' ') : '-';
+
+  return { nombres, apellidos };
 }
 
 async function getRoleId(roleName) {
@@ -69,13 +77,15 @@ async function getRoleId(roleName) {
 }
 
 async function registrarUsuarioConRol(payload, roleName) {
-  const nombres = normalizeText(payload.nombres, 'nombres');
-  const apellidos = normalizeText(payload.apellidos, 'apellidos');
-  const username = normalizeText(payload.username, 'username');
+  const fullName = payload.name ? normalizeText(payload.name, 'name') : null;
+  const splitFullName = fullName ? splitName(fullName) : null;
+  const nombres = splitFullName?.nombres || normalizeText(payload.nombres, 'nombres');
+  const apellidos = splitFullName?.apellidos || normalizeText(payload.apellidos, 'apellidos');
   const email = normalizeText(payload.email, 'email');
+  const username = payload.username ? normalizeText(payload.username, 'username') : email.split('@')[0];
   const password = normalizeText(payload.password, 'password');
   const fechaCreacion = parseCreationDate(payload.fechaCreacion);
-  const numero = parsePhoneNumber(payload.numero);
+  const numero = parsePhoneNumber(payload.numero ?? payload.telefono ?? '0');
   const normalizedRoleName = roleName ? normalizeText(roleName, 'rol') : null;
 
   const userExists = await usuarioRepository.findByUsernameOrEmail(username, email);
@@ -116,6 +126,10 @@ async function registrarUsuario(payload) {
 
 async function registrarUsuarioTecnico(payload) {
   return registrarUsuarioConRol(payload, 'tecnico');
+}
+
+async function registrarUsuarioVentas(payload) {
+  return registrarUsuarioConRol(payload, 'ventas');
 }
 
 async function registrarUsuarioCliente(payload) {
@@ -219,6 +233,7 @@ async function loginUsuario(payload) {
 module.exports = {
   registrarUsuario,
   registrarUsuarioTecnico,
+  registrarUsuarioVentas,
   registrarUsuarioCliente,
   loginUsuario,
 };

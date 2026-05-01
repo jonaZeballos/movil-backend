@@ -33,6 +33,7 @@ model Usuario {
 
   cliente Cliente?
   telefonos Telefono[]
+  ordenes OrdenServicio[]
 
   @@map("usuario")
 }
@@ -43,6 +44,7 @@ model Cliente {
   numeroDocumento BigInt  @unique @db.BigInt @map("numero_documento")
 
   usuario Usuario @relation(fields: [idUsuario], references: [id], onDelete: Cascade)
+  equipos Equipo[]
 
   @@map("cliente")
 }
@@ -55,4 +57,89 @@ model Telefono {
   usuario   Usuario @relation(fields: [idUsuario], references: [id])
 
   @@map("telefono")
+}
+
+model TipoEquipo {
+  id      String   @id @db.VarChar(1000) @map("id_tipo_equipo")
+  nombre  String   @db.VarChar(200) @map("nombre_tipo")
+  equipos Equipo[]
+
+  @@map("tipo_equipo")
+}
+
+model Marca {
+  id      String   @id @db.VarChar(1000) @map("id_marca")
+  nombre  String   @db.VarChar(1024) @map("nombre_marca")
+  modelos Modelo[]
+
+  @@map("marca")
+}
+
+model Modelo {
+  id              String   @id @db.VarChar(1000) @map("id_modelo")
+  nombreModelo    String   @db.VarChar(100) @map("nombre_modelo")
+  nombreComercial String   @db.VarChar(100) @map("nombre_comercial")
+  lanzamiento     DateTime @db.Date
+
+  idMarca String @db.VarChar(1000) @map("id_marca")
+  marca   Marca  @relation(fields: [idMarca], references: [id])
+
+  equipos Equipo[]
+
+  @@map("modelo")
+}
+
+model Equipo {
+  id            String   @id @db.VarChar(1000) @map("id_equipo")
+  nroSerie      String   @db.VarChar(200) @map("nro_serie")
+  fechaRegistro DateTime @db.Date @map("fecha_registro")
+
+  idCliente    String @db.VarChar(1000) @map("id_cliente")
+  idTipoEquipo String @db.VarChar(1000) @map("id_tipo_equipo")
+  idModelo     String @db.VarChar(1000) @map("id_modelo")
+
+  cliente    Cliente       @relation(fields: [idCliente], references: [idUsuario])
+  tipoEquipo TipoEquipo    @relation(fields: [idTipoEquipo], references: [id])
+  modelo     Modelo        @relation(fields: [idModelo], references: [id])
+  ordenes    OrdenServicio[]
+
+  @@map("equipo")
+}
+
+model EstadoOrdenServicio {
+  id      String           @id @db.VarChar(1000) @map("id_estado_orden_pago")
+  nombre  String           @db.VarChar(20) @map("nombre_estado_ops")
+  ordenes OrdenServicio[]
+
+  @@map("estado_orden_servicio")
+}
+
+model Prioridad {
+  id        String           @id @db.VarChar(1000) @map("id_prioridad")
+  prioridad String           @db.VarChar(100)
+  ordenes   OrdenServicio[]
+
+  @@map("prioridad")
+}
+
+model OrdenServicio {
+  id             String    @id @db.VarChar(1000) @map("id_orden_servicio")
+  codigo         Int
+  fechaRecepcion DateTime  @db.Date @map("fecha_recepcion")
+  fechaEntrega   DateTime? @db.Date @map("fecha_entrega")
+  diagnostico    String    @db.VarChar(400)
+  garantiaDias   Int       @map("garantia_dias")
+  observaciones  String?   @db.VarChar(1024)
+
+  idEquipo    String  @db.VarChar(1000) @map("id_equipo")
+  idTecnico   String? @db.VarChar(1000) @map("id_usuario")
+  idEstado    String  @db.VarChar(1000) @map("id_estado_orden_pago")
+  idPrioridad String  @db.VarChar(1000) @map("id_prioridad")
+
+  equipo    Equipo              @relation(fields: [idEquipo], references: [id])
+  tecnico   Usuario?            @relation(fields: [idTecnico], references: [id])
+  estado    EstadoOrdenServicio @relation(fields: [idEstado], references: [id])
+  prioridad Prioridad           @relation(fields: [idPrioridad], references: [id])
+
+  @@map("orden_servicio")
 }

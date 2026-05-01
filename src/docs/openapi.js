@@ -19,6 +19,9 @@ const options = {
     tags: [
       { name: 'Health', description: 'Verificacion del estado de la API' },
       { name: 'Usuarios', description: 'Registro y autenticacion de usuarios' },
+      { name: 'Clientes', description: 'Registro y busqueda de clientes' },
+      { name: 'Equipos', description: 'Registro y consulta de equipos' },
+      { name: 'Ordenes', description: 'Gestion de ordenes de servicio' },
     ],
     components: {
       securitySchemes: {
@@ -205,6 +208,26 @@ const options = {
           },
         },
       },
+      '/api/usuarios/registro-ventas': {
+        post: {
+          tags: ['Usuarios'],
+          summary: 'Registrar usuario ventas (solo admin)',
+          security: [{ bearerAuth: [] }],
+          requestBody: {
+            required: true,
+            content: {
+              'application/json': {
+                schema: { $ref: '#/components/schemas/RegistroUsuarioRequest' },
+              },
+            },
+          },
+          responses: {
+            201: { description: 'Usuario ventas registrado' },
+            401: { description: 'No autenticado' },
+            403: { description: 'Sin permisos' },
+          },
+        },
+      },
       '/api/usuarios/registro-cliente': {
         post: {
           tags: ['Usuarios'],
@@ -265,6 +288,152 @@ const options = {
               },
             },
             401: { description: 'Credenciales invalidas', content: { 'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } } } },
+          },
+        },
+      },
+      '/api/clientes': {
+        get: {
+          tags: ['Clientes'],
+          summary: 'Listar o buscar clientes',
+          security: [{ bearerAuth: [] }],
+          parameters: [
+            { in: 'query', name: 'buscar', schema: { type: 'string' } },
+            { in: 'query', name: 'numeroDocumento', schema: { type: 'string' } },
+          ],
+          responses: {
+            200: { description: 'Clientes obtenidos' },
+            401: { description: 'No autenticado' },
+          },
+        },
+        post: {
+          tags: ['Clientes'],
+          summary: 'Registrar cliente',
+          security: [{ bearerAuth: [] }],
+          requestBody: {
+            required: true,
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  required: ['razonSocial', 'numeroDocumento', 'numero'],
+                  properties: {
+                    razonSocial: { type: 'string', example: 'Juan Soliz' },
+                    numeroDocumento: { type: 'string', example: '1234567' },
+                    numero: { type: 'string', example: '70011223' },
+                    email: { type: 'string', example: 'juan@mail.com' },
+                  },
+                },
+              },
+            },
+          },
+          responses: {
+            201: { description: 'Cliente registrado' },
+            400: { description: 'Error de validacion' },
+            409: { description: 'Cliente duplicado' },
+          },
+        },
+      },
+      '/api/equipos': {
+        get: {
+          tags: ['Equipos'],
+          summary: 'Listar o buscar equipos',
+          security: [{ bearerAuth: [] }],
+          parameters: [
+            { in: 'query', name: 'buscar', schema: { type: 'string' } },
+          ],
+          responses: {
+            200: { description: 'Equipos obtenidos' },
+            401: { description: 'No autenticado' },
+          },
+        },
+        post: {
+          tags: ['Equipos'],
+          summary: 'Registrar equipo',
+          security: [{ bearerAuth: [] }],
+          requestBody: {
+            required: true,
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  required: ['clienteId', 'tipo', 'marca', 'modelo', 'nroSerie'],
+                  properties: {
+                    clienteId: { type: 'string' },
+                    tipo: { type: 'string', example: 'Laptop' },
+                    marca: { type: 'string', example: 'HP' },
+                    modelo: { type: 'string', example: 'Pavilion 15' },
+                    nroSerie: { type: 'string', example: 'HP-001' },
+                  },
+                },
+              },
+            },
+          },
+          responses: {
+            201: { description: 'Equipo registrado' },
+            400: { description: 'Error de validacion' },
+            404: { description: 'Cliente no encontrado' },
+          },
+        },
+      },
+      '/api/ordenes': {
+        get: {
+          tags: ['Ordenes'],
+          summary: 'Listar ordenes',
+          security: [{ bearerAuth: [] }],
+          responses: {
+            200: { description: 'Ordenes obtenidas' },
+          },
+        },
+        post: {
+          tags: ['Ordenes'],
+          summary: 'Crear orden de servicio',
+          security: [{ bearerAuth: [] }],
+          requestBody: {
+            required: true,
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  required: ['equipoId', 'diagnostico'],
+                  properties: {
+                    equipoId: { type: 'string' },
+                    diagnostico: { type: 'string', example: 'No enciende' },
+                    prioridad: { type: 'string', example: 'Normal' },
+                    garantiaDias: { type: 'integer', example: 30 },
+                  },
+                },
+              },
+            },
+          },
+          responses: {
+            201: { description: 'Orden creada' },
+          },
+        },
+      },
+      '/api/ordenes/{id}': {
+        patch: {
+          tags: ['Ordenes'],
+          summary: 'Actualizar estado u observaciones de orden',
+          security: [{ bearerAuth: [] }],
+          parameters: [
+            { in: 'path', name: 'id', required: true, schema: { type: 'string' } },
+          ],
+          requestBody: {
+            required: true,
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    estado: { type: 'string', example: 'En diagnostico' },
+                    observacion: { type: 'string', example: 'Se reviso fuente de poder.' },
+                  },
+                },
+              },
+            },
+          },
+          responses: {
+            200: { description: 'Orden actualizada' },
           },
         },
       },
