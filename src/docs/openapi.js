@@ -175,6 +175,18 @@ const options = {
           },
         },
       },
+      '/api/usuarios': {
+        get: {
+          tags: ['Usuarios'],
+          summary: 'Listar usuarios del sistema (solo admin)',
+          security: [{ bearerAuth: [] }],
+          responses: {
+            200: { description: 'Usuarios obtenidos' },
+            401: { description: 'No autenticado' },
+            403: { description: 'Sin permisos' },
+          },
+        },
+      },
       '/api/usuarios/registro-tecnico': {
         post: {
           tags: ['Usuarios'],

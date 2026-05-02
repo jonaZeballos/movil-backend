@@ -132,6 +132,25 @@ async function registrarUsuarioVentas(payload) {
   return registrarUsuarioConRol(payload, 'ventas');
 }
 
+function mapUsuario(user) {
+  return {
+    id: user.id,
+    nombres: user.nombres,
+    apellidos: user.apellidos,
+    name: [user.nombres, user.apellidos].filter(Boolean).join(' ').trim(),
+    username: user.username,
+    email: user.email,
+    fechaCreacion: user.fechaCreacion,
+    rol: user.rol ? user.rol.rol : null,
+    role: user.rol ? user.rol.rol : null,
+  };
+}
+
+async function listarUsuarios() {
+  const usuarios = await usuarioRepository.listUsers();
+  return usuarios.map(mapUsuario);
+}
+
 async function registrarUsuarioCliente(payload) {
   const nombres = normalizeText(payload.nombres, 'nombres');
   const apellidos = normalizeText(payload.apellidos, 'apellidos');
@@ -234,6 +253,7 @@ module.exports = {
   registrarUsuario,
   registrarUsuarioTecnico,
   registrarUsuarioVentas,
+  listarUsuarios,
   registrarUsuarioCliente,
   loginUsuario,
 };

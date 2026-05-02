@@ -39,6 +39,19 @@ async function registrarUsuarioVentas(req, res, next) {
   }
 }
 
+async function listarUsuarios(req, res, next) {
+  try {
+    const usuarios = await usuarioService.listarUsuarios();
+
+    return res.json({
+      mensaje: 'Usuarios obtenidos correctamente',
+      data: usuarios,
+    });
+  } catch (error) {
+    return next(error);
+  }
+}
+
 async function registrarUsuarioCliente(req, res, next) {
   try {
     const usuario = await usuarioService.registrarUsuarioCliente(req.body);
@@ -69,6 +82,7 @@ module.exports = {
   registrarUsuario,
   registrarUsuarioTecnico,
   registrarUsuarioVentas,
+  listarUsuarios,
   registrarUsuarioCliente,
   loginUsuario,
 };
