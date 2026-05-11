@@ -26,19 +26,23 @@ function findById(idUsuario) {
   });
 }
 
-function list(search, documentNumber) {
+function list(search, documentNumber, searchDocumentNumber) {
+  const searchFilters = search
+    ? [
+        { razonSocial: { contains: search, mode: 'insensitive' } },
+        { usuario: { nombres: { contains: search, mode: 'insensitive' } } },
+        { usuario: { apellidos: { contains: search, mode: 'insensitive' } } },
+        { usuario: { username: { contains: search, mode: 'insensitive' } } },
+        { usuario: { email: { contains: search, mode: 'insensitive' } } },
+        ...(searchDocumentNumber ? [{ numeroDocumento: searchDocumentNumber }] : []),
+      ]
+    : [];
+
   return prisma.cliente.findMany({
     where: {
       AND: [
         search
-          ? {
-              OR: [
-                { razonSocial: { contains: search, mode: 'insensitive' } },
-                { usuario: { nombres: { contains: search, mode: 'insensitive' } } },
-                { usuario: { apellidos: { contains: search, mode: 'insensitive' } } },
-                { usuario: { email: { contains: search, mode: 'insensitive' } } },
-              ],
-            }
+          ? { OR: searchFilters }
           : {},
         documentNumber ? { numeroDocumento: documentNumber } : {},
       ],

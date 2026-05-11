@@ -1,7 +1,9 @@
 const prisma = require('../utils/prismaClient');
 
 function findEstadoByName(nombre) {
-  return prisma.estadoOrdenServicio.findFirst({ where: { nombre } });
+  return prisma.estadoOrdenServicio.findFirst({
+    where: { nombre: { equals: nombre, mode: 'insensitive' } },
+  });
 }
 
 function createEstado(id, nombre) {

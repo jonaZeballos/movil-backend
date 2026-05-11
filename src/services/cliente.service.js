@@ -26,11 +26,25 @@ function parseBigInt(value, fieldName) {
     throw new AppError(`El campo ${fieldName} es obligatorio`, 400);
   }
 
+  const digits = String(value).replace(/\D/g, '');
+  if (!digits) {
+    throw new AppError(`El campo ${fieldName} debe ser numerico`, 400);
+  }
+
   try {
-    return BigInt(String(value).replace(/\D/g, ''));
+    return BigInt(digits);
   } catch (error) {
     throw new AppError(`El campo ${fieldName} debe ser numerico`, 400);
   }
+}
+
+function parseSearchDocument(value) {
+  if (!value) {
+    return null;
+  }
+
+  const digits = String(value).replace(/\D/g, '');
+  return digits ? BigInt(digits) : null;
 }
 
 async function getRoleId(roleName) {
@@ -58,6 +72,9 @@ function mapClient(cliente) {
     id: cliente.idUsuario,
     razonSocial: cliente.razonSocial,
     nombre: cliente.razonSocial,
+    nombres: cliente.usuario?.nombres || null,
+    apellidos: cliente.usuario?.apellidos || null,
+    username: cliente.usuario?.username || null,
     numeroDocumento: cliente.numeroDocumento.toString(),
     email: cliente.usuario?.email || null,
     telefono: telefono ? telefono.toString() : null,
@@ -68,7 +85,8 @@ async function listClientes(query = {}) {
   const search = optionalText(query.buscar ?? query.search);
   const rawDocument = optionalText(query.numeroDocumento);
   const documentNumber = rawDocument ? parseBigInt(rawDocument, 'numeroDocumento') : null;
-  const clientes = await clienteRepository.list(search, documentNumber);
+  const searchDocumentNumber = parseSearchDocument(search);
+  const clientes = await clienteRepository.list(search, documentNumber, searchDocumentNumber);
 
   return clientes.map(mapClient);
 }

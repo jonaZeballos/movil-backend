@@ -4,6 +4,8 @@ const {
   obtenerOrden,
   crearOrden,
   actualizarOrden,
+  actualizarEstadoOrden,
+  actualizarObservacionesOrden,
 } = require('../controllers/orden.controller');
 const { requireAuth } = require('../middlewares');
 
@@ -12,6 +14,8 @@ const router = Router();
 router.get('/', requireAuth, listarOrdenes);
 router.get('/:id', requireAuth, obtenerOrden);
 router.post('/', requireAuth, crearOrden);
+router.patch('/:id/estado', requireAuth, actualizarEstadoOrden);
+router.patch('/:id/observaciones', requireAuth, actualizarObservacionesOrden);
 router.patch('/:id', requireAuth, actualizarOrden);
 
 module.exports = router;

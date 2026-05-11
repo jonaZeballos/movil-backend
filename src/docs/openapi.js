@@ -124,6 +124,69 @@ const options = {
             },
           },
         },
+        Cliente: {
+          type: 'object',
+          properties: {
+            id: { type: 'string', example: 'c0b1f7f9-0f4d-4d12-a5d1-0c57f5f790a1' },
+            razonSocial: { type: 'string', example: 'Cliente Demo SRL' },
+            nombre: { type: 'string', example: 'Cliente Demo SRL' },
+            nombres: { type: 'string', nullable: true, example: 'Cliente' },
+            apellidos: { type: 'string', nullable: true, example: 'Demo' },
+            username: { type: 'string', nullable: true, example: 'cliente-demo' },
+            numeroDocumento: { type: 'string', example: '12345678901' },
+            email: { type: 'string', nullable: true, example: 'cliente@mail.com' },
+            telefono: { type: 'string', nullable: true, example: '70011223' },
+          },
+        },
+        OrdenServicio: {
+          type: 'object',
+          properties: {
+            id: { type: 'string', example: '8ba284ea-5f9d-4a89-8fb4-82b81f1a19b5' },
+            codigo: { type: 'integer', example: 12 },
+            code: { type: 'string', example: '#0012' },
+            equipoId: { type: 'string' },
+            tecnicoId: { type: 'string', nullable: true },
+            clientName: { type: 'string', nullable: true, example: 'Cliente Demo SRL' },
+            equipmentName: { type: 'string', nullable: true, example: 'Laptop HP Pavilion 15' },
+            equipmentSerial: { type: 'string', nullable: true, example: 'HP-001' },
+            diagnostico: { type: 'string', example: 'No enciende' },
+            failure: { type: 'string', example: 'No enciende' },
+            estado: { type: 'string', nullable: true, example: 'En diagnostico' },
+            status: { type: 'string', nullable: true, example: 'En diagnostico' },
+            prioridad: { type: 'string', nullable: true, example: 'Normal' },
+            garantiaDias: { type: 'integer', example: 30 },
+            fechaRecepcion: { type: 'string', format: 'date-time' },
+            fechaEntrega: { type: 'string', format: 'date-time', nullable: true },
+            observacionesTexto: { type: 'string', nullable: true, example: 'Equipo recibido con cargador.' },
+            observaciones: {
+              type: 'array',
+              items: { type: 'string' },
+              example: ['Equipo recibido con cargador.'],
+            },
+          },
+        },
+        ActualizarEstadoOrdenRequest: {
+          type: 'object',
+          required: ['estado'],
+          properties: {
+            estado: { type: 'string', example: 'En diagnostico' },
+          },
+        },
+        ActualizarObservacionesOrdenRequest: {
+          type: 'object',
+          properties: {
+            observaciones: {
+              type: 'string',
+              description: 'Reemplaza las observaciones actuales.',
+              example: 'Cliente indica que el equipo falla al encender.',
+            },
+            observacion: {
+              type: 'string',
+              description: 'Agrega una observacion al final de las observaciones actuales.',
+              example: 'Se recibio cargador original.',
+            },
+          },
+        },
       },
     },
     paths: {
@@ -306,15 +369,45 @@ const options = {
       '/api/clientes': {
         get: {
           tags: ['Clientes'],
-          summary: 'Listar o buscar clientes',
+          summary: 'Listar o buscar clientes (HU05)',
+          description: 'Busca clientes por nombres, apellidos, username, email, razon social o numero de documento. Si no se envia criterio, lista clientes.',
           security: [{ bearerAuth: [] }],
           parameters: [
-            { in: 'query', name: 'buscar', schema: { type: 'string' } },
-            { in: 'query', name: 'numeroDocumento', schema: { type: 'string' } },
+            {
+              in: 'query',
+              name: 'buscar',
+              schema: { type: 'string' },
+              example: 'cliente',
+              description: 'Texto para nombres, apellidos, username, email, razonSocial o numeroDocumento.',
+            },
+            {
+              in: 'query',
+              name: 'numeroDocumento',
+              schema: { type: 'string' },
+              example: '12345678901',
+              description: 'Filtro exacto por numero de documento.',
+            },
           ],
           responses: {
-            200: { description: 'Clientes obtenidos' },
-            401: { description: 'No autenticado' },
+            200: {
+              description: 'Clientes obtenidos',
+              content: {
+                'application/json': {
+                  schema: {
+                    type: 'object',
+                    properties: {
+                      mensaje: { type: 'string', example: 'Clientes obtenidos correctamente' },
+                      data: {
+                        type: 'array',
+                        items: { $ref: '#/components/schemas/Cliente' },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+            400: { description: 'Numero de documento invalido', content: { 'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } } } },
+            401: { description: 'No autenticado', content: { 'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } } } },
           },
         },
         post: {
@@ -425,7 +518,8 @@ const options = {
       '/api/ordenes/{id}': {
         patch: {
           tags: ['Ordenes'],
-          summary: 'Actualizar estado u observaciones de orden',
+          summary: 'Actualizar orden parcialmente',
+          description: 'Mantiene compatibilidad con Sprint 1. Para HU08 y HU09 se recomiendan las rutas especificas /estado y /observaciones.',
           security: [{ bearerAuth: [] }],
           parameters: [
             { in: 'path', name: 'id', required: true, schema: { type: 'string' } },
@@ -445,7 +539,106 @@ const options = {
             },
           },
           responses: {
-            200: { description: 'Orden actualizada' },
+            200: {
+              description: 'Orden actualizada',
+              content: {
+                'application/json': {
+                  schema: {
+                    type: 'object',
+                    properties: {
+                      mensaje: { type: 'string', example: 'Orden actualizada correctamente' },
+                      data: { $ref: '#/components/schemas/OrdenServicio' },
+                    },
+                  },
+                },
+              },
+            },
+            400: { description: 'Estado invalido o payload incompleto', content: { 'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } } } },
+            404: { description: 'Orden no encontrada', content: { 'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } } } },
+          },
+        },
+      },
+      '/api/ordenes/{id}/estado': {
+        patch: {
+          tags: ['Ordenes'],
+          summary: 'Actualizar estado de orden (HU08)',
+          description: 'Actualiza el estado de una orden existente. El estado debe existir previamente en el catalogo estado_orden_servicio.',
+          security: [{ bearerAuth: [] }],
+          parameters: [
+            { in: 'path', name: 'id', required: true, schema: { type: 'string' } },
+          ],
+          requestBody: {
+            required: true,
+            content: {
+              'application/json': {
+                schema: { $ref: '#/components/schemas/ActualizarEstadoOrdenRequest' },
+              },
+            },
+          },
+          responses: {
+            200: {
+              description: 'Estado de orden actualizado',
+              content: {
+                'application/json': {
+                  schema: {
+                    type: 'object',
+                    properties: {
+                      mensaje: { type: 'string', example: 'Estado de orden actualizado correctamente' },
+                      data: { $ref: '#/components/schemas/OrdenServicio' },
+                    },
+                  },
+                },
+              },
+            },
+            400: { description: 'Estado invalido', content: { 'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } } } },
+            404: { description: 'Orden no encontrada', content: { 'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } } } },
+          },
+        },
+      },
+      '/api/ordenes/{id}/observaciones': {
+        patch: {
+          tags: ['Ordenes'],
+          summary: 'Agregar o modificar observaciones de orden (HU09)',
+          description: 'Permite reemplazar observaciones con observaciones o agregar una nueva linea con observacion.',
+          security: [{ bearerAuth: [] }],
+          parameters: [
+            { in: 'path', name: 'id', required: true, schema: { type: 'string' } },
+          ],
+          requestBody: {
+            required: true,
+            content: {
+              'application/json': {
+                schema: { $ref: '#/components/schemas/ActualizarObservacionesOrdenRequest' },
+                examples: {
+                  reemplazar: {
+                    summary: 'Modificar observaciones',
+                    value: { observaciones: 'Cliente solicita revision completa.' },
+                  },
+                  agregar: {
+                    summary: 'Agregar observacion',
+                    value: { observacion: 'Se adjunta cargador original.' },
+                  },
+                },
+              },
+            },
+          },
+          responses: {
+            200: {
+              description: 'Observaciones actualizadas',
+              content: {
+                'application/json': {
+                  schema: {
+                    type: 'object',
+                    properties: {
+                      mensaje: { type: 'string', example: 'Observaciones de orden actualizadas correctamente' },
+                      data: { $ref: '#/components/schemas/OrdenServicio' },
+                    },
+                  },
+                },
+              },
+            },
+            400: { description: 'Payload incompleto', content: { 'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } } } },
+            404: { description: 'Orden no encontrada', content: { 'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } } } },
           },
         },
       },

@@ -42,6 +42,15 @@ async function getOrCreateEstado(nombre) {
   return ordenRepository.createEstado(randomUUID(), nombre);
 }
 
+async function getExistingEstado(nombre) {
+  const existingEstado = await ordenRepository.findEstadoByName(nombre);
+  if (!existingEstado) {
+    throw new AppError('El estado indicado no es valido', 400);
+  }
+
+  return existingEstado;
+}
+
 async function getOrCreatePrioridad(prioridad) {
   const existingPrioridad = await ordenRepository.findPrioridadByName(prioridad);
   if (existingPrioridad) {
@@ -73,6 +82,7 @@ function mapOrden(orden) {
     garantiaDias: orden.garantiaDias,
     fechaRecepcion: orden.fechaRecepcion,
     fechaEntrega: orden.fechaEntrega,
+    observacionesTexto: orden.observaciones || null,
     observaciones: orden.observaciones ? orden.observaciones.split('\n').filter(Boolean) : [],
   };
 }
@@ -139,7 +149,7 @@ async function updateOrden(id, payload) {
   const observaciones = optionalText(payload.observaciones);
 
   if (estadoNombre) {
-    const estado = await getOrCreateEstado(estadoNombre);
+    const estado = await getExistingEstado(estadoNombre);
     data.idEstado = estado.id;
   }
 
@@ -163,6 +173,47 @@ async function updateOrden(id, payload) {
     data.fechaEntrega = fechaEntrega;
   }
 
+  if (!Object.keys(data).length) {
+    throw new AppError('Debe enviar al menos un campo valido para actualizar', 400);
+  }
+
+  const updatedOrden = await ordenRepository.updateOrden(id, data);
+  return mapOrden(updatedOrden);
+}
+
+async function updateEstadoOrden(id, payload) {
+  const estadoNombre = normalizeText(payload.estado ?? payload.status, 'estado');
+  const existingOrden = await ordenRepository.findById(id);
+  if (!existingOrden) {
+    throw new AppError('Orden de servicio no encontrada', 404);
+  }
+
+  const estado = await getExistingEstado(estadoNombre);
+  const updatedOrden = await ordenRepository.updateOrden(id, { idEstado: estado.id });
+
+  return mapOrden(updatedOrden);
+}
+
+async function updateObservacionesOrden(id, payload) {
+  const existingOrden = await ordenRepository.findById(id);
+  if (!existingOrden) {
+    throw new AppError('Orden de servicio no encontrada', 404);
+  }
+
+  const data = {};
+
+  if (typeof payload.observaciones === 'string') {
+    data.observaciones = payload.observaciones.trim() || null;
+  }
+
+  if (typeof payload.observacion === 'string' && payload.observacion.trim()) {
+    data.observaciones = [existingOrden.observaciones, payload.observacion.trim()].filter(Boolean).join('\n');
+  }
+
+  if (!Object.keys(data).length) {
+    throw new AppError('Debe enviar observaciones u observacion', 400);
+  }
+
   const updatedOrden = await ordenRepository.updateOrden(id, data);
   return mapOrden(updatedOrden);
 }
@@ -172,4 +223,6 @@ module.exports = {
   getOrden,
   createOrden,
   updateOrden,
+  updateEstadoOrden,
+  updateObservacionesOrden,
 };

@@ -52,9 +52,37 @@ async function actualizarOrden(req, res, next) {
   }
 }
 
+async function actualizarEstadoOrden(req, res, next) {
+  try {
+    const orden = await ordenService.updateEstadoOrden(req.params.id, req.body);
+
+    return res.json({
+      mensaje: 'Estado de orden actualizado correctamente',
+      data: orden,
+    });
+  } catch (error) {
+    return next(error);
+  }
+}
+
+async function actualizarObservacionesOrden(req, res, next) {
+  try {
+    const orden = await ordenService.updateObservacionesOrden(req.params.id, req.body);
+
+    return res.json({
+      mensaje: 'Observaciones de orden actualizadas correctamente',
+      data: orden,
+    });
+  } catch (error) {
+    return next(error);
+  }
+}
+
 module.exports = {
   listarOrdenes,
   obtenerOrden,
   crearOrden,
   actualizarOrden,
+  actualizarEstadoOrden,
+  actualizarObservacionesOrden,
 };
