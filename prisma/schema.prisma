@@ -12,76 +12,76 @@ datasource db {
 }
 
 model Rol {
-  id      String    @id @db.VarChar(1000) @map("id_rol")
-  rol     String    @db.VarChar(200)
+  id       String    @id @map("id_rol") @db.VarChar(1000)
+  rol      String    @db.VarChar(200)
   usuarios Usuario[]
 
   @@map("roles")
 }
 
 model Usuario {
-  id            String     @id @db.VarChar(1000) @map("id_usuario")
-  nombres       String     @db.VarChar(100)
-  apellidos     String     @db.VarChar(100)
-  username      String     @db.VarChar(30)
-  email         String     @db.VarChar(200)
-  password      String     @db.VarChar(1024)
-  fechaCreacion DateTime   @db.Date @map("fecha_creacion")
+  id            String   @id @map("id_usuario") @db.VarChar(1000)
+  nombres       String   @db.VarChar(100)
+  apellidos     String   @db.VarChar(100)
+  username      String   @db.VarChar(30)
+  email         String   @db.VarChar(200)
+  password      String   @db.VarChar(1024)
+  fechaCreacion DateTime @map("fecha_creacion") @db.Date
 
-  idRol String? @db.VarChar(1000) @map("id_rol")
+  idRol String? @map("id_rol") @db.VarChar(1000)
   rol   Rol?    @relation(fields: [idRol], references: [id])
 
-  cliente Cliente?
+  cliente   Cliente?
   telefonos Telefono[]
-  ordenes OrdenServicio[]
+  ordenes   OrdenServicio[]
 
   @@map("usuario")
 }
 
 model Cliente {
-  idUsuario       String  @id @db.VarChar(1000) @map("id_usuario")
-  razonSocial     String  @db.VarChar(100) @map("razon_social")
-  numeroDocumento BigInt  @unique @db.BigInt @map("numero_documento")
+  idUsuario       String @id @map("id_usuario") @db.VarChar(1000)
+  razonSocial     String @map("razon_social") @db.VarChar(100)
+  numeroDocumento BigInt @unique @map("numero_documento") @db.BigInt
 
-  usuario Usuario @relation(fields: [idUsuario], references: [id], onDelete: Cascade)
+  usuario Usuario  @relation(fields: [idUsuario], references: [id], onDelete: Cascade)
   equipos Equipo[]
 
   @@map("cliente")
 }
 
 model Telefono {
-  id     String  @id @db.VarChar(1000) @map("id_telefono")
-  numero BigInt  @db.BigInt
+  id     String @id @map("id_telefono") @db.VarChar(1000)
+  numero BigInt @db.BigInt
 
-  idUsuario String  @db.VarChar(1000) @map("id_usuario")
+  idUsuario String  @map("id_usuario") @db.VarChar(1000)
   usuario   Usuario @relation(fields: [idUsuario], references: [id])
 
   @@map("telefono")
 }
 
 model TipoEquipo {
-  id      String   @id @db.VarChar(1000) @map("id_tipo_equipo")
-  nombre  String   @db.VarChar(200) @map("nombre_tipo")
+  id      String   @id @map("id_tipo_equipo") @db.VarChar(1000)
+  nombre  String   @map("nombre_tipo") @db.VarChar(200)
   equipos Equipo[]
 
   @@map("tipo_equipo")
 }
 
 model Marca {
-  id      String   @id @db.VarChar(1000) @map("id_marca")
-  nombre  String   @db.VarChar(1024) @map("nombre_marca")
+  id      String   @id @map("id_marca") @db.VarChar(1000)
+  nombre  String   @map("nombre_marca") @db.VarChar(1024)
   modelos Modelo[]
 
   @@map("marca")
 }
 
 model Modelo {
-  id              String   @id @db.VarChar(1000) @map("id_modelo")
-  nombreModelo    String   @db.VarChar(100) @map("nombre_modelo")
-  nombreComercial String   @db.VarChar(100) @map("nombre_comercial")
+  id              String   @id @map("id_modelo") @db.VarChar(1000)
+  nombreModelo    String   @map("nombre_modelo") @db.VarChar(100)
+  nombreComercial String   @map("nombre_comercial") @db.VarChar(100)
   lanzamiento     DateTime @db.Date
 
-  idMarca String @db.VarChar(1000) @map("id_marca")
+  idMarca String @map("id_marca") @db.VarChar(1000)
   marca   Marca  @relation(fields: [idMarca], references: [id])
 
   equipos Equipo[]
@@ -90,56 +90,119 @@ model Modelo {
 }
 
 model Equipo {
-  id            String   @id @db.VarChar(1000) @map("id_equipo")
-  nroSerie      String   @db.VarChar(200) @map("nro_serie")
-  fechaRegistro DateTime @db.Date @map("fecha_registro")
+  id            String   @id @map("id_equipo") @db.VarChar(1000)
+  nroSerie      String   @map("nro_serie") @db.VarChar(200)
+  fechaRegistro DateTime @map("fecha_registro") @db.Date
 
-  idCliente    String @db.VarChar(1000) @map("id_cliente")
-  idTipoEquipo String @db.VarChar(1000) @map("id_tipo_equipo")
-  idModelo     String @db.VarChar(1000) @map("id_modelo")
+  idCliente    String @map("id_cliente") @db.VarChar(1000)
+  idTipoEquipo String @map("id_tipo_equipo") @db.VarChar(1000)
+  idModelo     String @map("id_modelo") @db.VarChar(1000)
 
-  cliente    Cliente       @relation(fields: [idCliente], references: [idUsuario])
-  tipoEquipo TipoEquipo    @relation(fields: [idTipoEquipo], references: [id])
-  modelo     Modelo        @relation(fields: [idModelo], references: [id])
+  cliente    Cliente         @relation(fields: [idCliente], references: [idUsuario])
+  tipoEquipo TipoEquipo      @relation(fields: [idTipoEquipo], references: [id])
+  modelo     Modelo          @relation(fields: [idModelo], references: [id])
   ordenes    OrdenServicio[]
 
   @@map("equipo")
 }
 
 model EstadoOrdenServicio {
-  id      String           @id @db.VarChar(1000) @map("id_estado_orden_pago")
-  nombre  String           @db.VarChar(20) @map("nombre_estado_ops")
+  id      String          @id @map("id_estado_orden_pago") @db.VarChar(1000)
+  nombre  String          @map("nombre_estado_ops") @db.VarChar(20)
   ordenes OrdenServicio[]
 
   @@map("estado_orden_servicio")
 }
 
 model Prioridad {
-  id        String           @id @db.VarChar(1000) @map("id_prioridad")
-  prioridad String           @db.VarChar(100)
+  id        String          @id @map("id_prioridad") @db.VarChar(1000)
+  prioridad String          @db.VarChar(100)
   ordenes   OrdenServicio[]
 
   @@map("prioridad")
 }
 
 model OrdenServicio {
-  id             String    @id @db.VarChar(1000) @map("id_orden_servicio")
+  id             String    @id @map("id_orden_servicio") @db.VarChar(1000)
   codigo         Int
-  fechaRecepcion DateTime  @db.Date @map("fecha_recepcion")
-  fechaEntrega   DateTime? @db.Date @map("fecha_entrega")
+  fechaRecepcion DateTime  @map("fecha_recepcion") @db.Date
+  fechaEntrega   DateTime? @map("fecha_entrega") @db.Date
   diagnostico    String    @db.VarChar(400)
   garantiaDias   Int       @map("garantia_dias")
   observaciones  String?   @db.VarChar(1024)
 
-  idEquipo    String  @db.VarChar(1000) @map("id_equipo")
-  idTecnico   String? @db.VarChar(1000) @map("id_usuario")
-  idEstado    String  @db.VarChar(1000) @map("id_estado_orden_pago")
-  idPrioridad String  @db.VarChar(1000) @map("id_prioridad")
+  idEquipo    String  @map("id_equipo") @db.VarChar(1000)
+  idTecnico   String? @map("id_usuario") @db.VarChar(1000)
+  idEstado    String  @map("id_estado_orden_pago") @db.VarChar(1000)
+  idPrioridad String  @map("id_prioridad") @db.VarChar(1000)
 
-  equipo    Equipo              @relation(fields: [idEquipo], references: [id])
-  tecnico   Usuario?            @relation(fields: [idTecnico], references: [id])
-  estado    EstadoOrdenServicio @relation(fields: [idEstado], references: [id])
-  prioridad Prioridad           @relation(fields: [idPrioridad], references: [id])
+  equipo       Equipo              @relation(fields: [idEquipo], references: [id])
+  tecnico      Usuario?            @relation(fields: [idTecnico], references: [id])
+  estado       EstadoOrdenServicio @relation(fields: [idEstado], references: [id])
+  prioridad    Prioridad           @relation(fields: [idPrioridad], references: [id])
+  cotizaciones Cotizacion[]
 
   @@map("orden_servicio")
+}
+
+model Producto {
+  id            String   @id @map("id_producto") @db.VarChar(1000)
+  nombre        String   @db.VarChar(200)
+  marca         String?  @db.VarChar(100)
+  modelo        String?  @db.VarChar(100)
+  descripcion   String?  @db.VarChar(500)
+  precio        Decimal  @db.Decimal(10, 2)
+  stock         Int
+  stockMinimo   Int      @default(1) @map("stock_minimo")
+  fechaCreacion DateTime @default(now()) @map("fecha_creacion") @db.Date
+
+  detallesVenta VentaDetalle[]
+
+  @@map("producto")
+}
+
+model Cotizacion {
+  id            String   @id @map("id_cotizacion") @db.VarChar(1000)
+  numero        Int
+  descripcion   String   @db.VarChar(500)
+  manoObra      Decimal  @map("mano_obra") @db.Decimal(10, 2)
+  repuestos     Decimal  @db.Decimal(10, 2)
+  descuento     Decimal  @default(0) @db.Decimal(10, 2)
+  total         Decimal  @db.Decimal(10, 2)
+  observaciones String?  @db.VarChar(1024)
+  estado        String   @default("Pendiente") @db.VarChar(50)
+  fechaCreacion DateTime @default(now()) @map("fecha_creacion") @db.Date
+
+  idOrden String        @map("id_orden_servicio") @db.VarChar(1000)
+  orden   OrdenServicio @relation(fields: [idOrden], references: [id])
+
+  @@map("cotizacion")
+}
+
+model Venta {
+  id            String   @id @map("id_venta") @db.VarChar(1000)
+  numero        Int
+  clienteNombre String?  @map("cliente_nombre") @db.VarChar(200)
+  total         Decimal  @db.Decimal(10, 2)
+  reciboCodigo  String   @map("recibo_codigo") @db.VarChar(50)
+  fechaCreacion DateTime @default(now()) @map("fecha_creacion") @db.Date
+
+  detalles VentaDetalle[]
+
+  @@map("venta")
+}
+
+model VentaDetalle {
+  id             String  @id @map("id_venta_detalle") @db.VarChar(1000)
+  cantidad       Int
+  precioUnitario Decimal @map("precio_unitario") @db.Decimal(10, 2)
+  subtotal       Decimal @db.Decimal(10, 2)
+
+  idVenta    String @map("id_venta") @db.VarChar(1000)
+  idProducto String @map("id_producto") @db.VarChar(1000)
+
+  venta    Venta    @relation(fields: [idVenta], references: [id], onDelete: Cascade)
+  producto Producto @relation(fields: [idProducto], references: [id])
+
+  @@map("venta_detalle")
 }

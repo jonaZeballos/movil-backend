@@ -22,6 +22,9 @@ const options = {
       { name: 'Clientes', description: 'Registro y busqueda de clientes' },
       { name: 'Equipos', description: 'Registro y consulta de equipos' },
       { name: 'Ordenes', description: 'Gestion de ordenes de servicio' },
+      { name: 'Productos', description: 'Inventario y control de stock' },
+      { name: 'Cotizaciones', description: 'Generacion de cotizaciones' },
+      { name: 'Ventas', description: 'Registro de ventas y recibos' },
     ],
     components: {
       securitySchemes: {
@@ -184,6 +187,102 @@ const options = {
               type: 'string',
               description: 'Agrega una observacion al final de las observaciones actuales.',
               example: 'Se recibio cargador original.',
+            },
+          },
+        },
+        Producto: {
+          type: 'object',
+          properties: {
+            id: { type: 'string' },
+            nombre: { type: 'string', example: 'Fuente ATX 500W' },
+            marca: { type: 'string', nullable: true, example: 'Cooler Master' },
+            modelo: { type: 'string', nullable: true, example: 'MWE 500' },
+            descripcion: { type: 'string', nullable: true, example: 'Repuesto para PC de escritorio' },
+            precio: { type: 'number', example: 280 },
+            stock: { type: 'integer', example: 5 },
+            stockMinimo: { type: 'integer', example: 2 },
+            stockBajo: { type: 'boolean', example: false },
+          },
+        },
+        ProductoRequest: {
+          type: 'object',
+          required: ['nombre', 'precio', 'stock'],
+          properties: {
+            nombre: { type: 'string', example: 'Fuente ATX 500W' },
+            marca: { type: 'string', example: 'Cooler Master' },
+            modelo: { type: 'string', example: 'MWE 500' },
+            descripcion: { type: 'string', example: 'Repuesto para PC de escritorio' },
+            precio: { type: 'number', example: 280 },
+            stock: { type: 'integer', example: 5 },
+            stockMinimo: { type: 'integer', example: 2 },
+          },
+        },
+        Cotizacion: {
+          type: 'object',
+          properties: {
+            id: { type: 'string' },
+            numero: { type: 'string', example: 'COT-0001' },
+            ordenId: { type: 'string' },
+            descripcion: { type: 'string', example: 'Cambio de fuente y limpieza interna' },
+            manoObra: { type: 'number', example: 120 },
+            repuestos: { type: 'number', example: 280 },
+            descuento: { type: 'number', example: 0 },
+            total: { type: 'number', example: 400 },
+            estado: { type: 'string', example: 'Pendiente' },
+            whatsappUrl: { type: 'string', example: 'https://wa.me/?text=...' },
+          },
+        },
+        CotizacionRequest: {
+          type: 'object',
+          required: ['ordenId', 'descripcion', 'manoObra', 'repuestos'],
+          properties: {
+            ordenId: { type: 'string' },
+            descripcion: { type: 'string', example: 'Cambio de fuente y limpieza interna' },
+            manoObra: { type: 'number', example: 120 },
+            repuestos: { type: 'number', example: 280 },
+            descuento: { type: 'number', example: 0 },
+            observaciones: { type: 'string', example: 'Cotizacion valida por 7 dias' },
+          },
+        },
+        Venta: {
+          type: 'object',
+          properties: {
+            id: { type: 'string' },
+            numero: { type: 'integer', example: 1 },
+            reciboCodigo: { type: 'string', example: 'REC-0001' },
+            clienteNombre: { type: 'string', nullable: true, example: 'Juan Perez' },
+            total: { type: 'number', example: 560 },
+            detalles: {
+              type: 'array',
+              items: {
+                type: 'object',
+                properties: {
+                  productoId: { type: 'string' },
+                  nombre: { type: 'string' },
+                  cantidad: { type: 'integer' },
+                  precioUnitario: { type: 'number' },
+                  subtotal: { type: 'number' },
+                },
+              },
+            },
+          },
+        },
+        VentaRequest: {
+          type: 'object',
+          required: ['items'],
+          properties: {
+            clienteNombre: { type: 'string', example: 'Juan Perez' },
+            items: {
+              type: 'array',
+              items: {
+                type: 'object',
+                required: ['productoId', 'cantidad'],
+                properties: {
+                  productoId: { type: 'string' },
+                  cantidad: { type: 'integer', example: 2 },
+                  precioUnitario: { type: 'number', example: 280 },
+                },
+              },
             },
           },
         },
@@ -639,6 +738,155 @@ const options = {
             },
             400: { description: 'Payload incompleto', content: { 'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } } } },
             404: { description: 'Orden no encontrada', content: { 'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } } } },
+          },
+        },
+      },
+      '/api/productos': {
+        get: {
+          tags: ['Productos'],
+          summary: 'Listar o buscar productos de inventario',
+          security: [{ bearerAuth: [] }],
+          parameters: [
+            { in: 'query', name: 'buscar', schema: { type: 'string' } },
+          ],
+          responses: {
+            200: { description: 'Productos obtenidos' },
+            401: { description: 'No autenticado' },
+          },
+        },
+        post: {
+          tags: ['Productos'],
+          summary: 'Registrar producto en inventario (HU12)',
+          security: [{ bearerAuth: [] }],
+          requestBody: {
+            required: true,
+            content: {
+              'application/json': {
+                schema: { $ref: '#/components/schemas/ProductoRequest' },
+              },
+            },
+          },
+          responses: {
+            201: { description: 'Producto registrado' },
+            400: { description: 'Error de validacion' },
+          },
+        },
+      },
+      '/api/productos/{id}': {
+        get: {
+          tags: ['Productos'],
+          summary: 'Obtener producto',
+          security: [{ bearerAuth: [] }],
+          parameters: [
+            { in: 'path', name: 'id', required: true, schema: { type: 'string' } },
+          ],
+          responses: {
+            200: { description: 'Producto obtenido' },
+            404: { description: 'Producto no encontrado' },
+          },
+        },
+        patch: {
+          tags: ['Productos'],
+          summary: 'Actualizar producto o stock (HU13)',
+          security: [{ bearerAuth: [] }],
+          parameters: [
+            { in: 'path', name: 'id', required: true, schema: { type: 'string' } },
+          ],
+          requestBody: {
+            required: true,
+            content: {
+              'application/json': {
+                schema: { $ref: '#/components/schemas/ProductoRequest' },
+              },
+            },
+          },
+          responses: {
+            200: { description: 'Producto actualizado' },
+            404: { description: 'Producto no encontrado' },
+          },
+        },
+      },
+      '/api/cotizaciones': {
+        get: {
+          tags: ['Cotizaciones'],
+          summary: 'Listar cotizaciones',
+          security: [{ bearerAuth: [] }],
+          responses: {
+            200: { description: 'Cotizaciones obtenidas' },
+          },
+        },
+        post: {
+          tags: ['Cotizaciones'],
+          summary: 'Generar cotizacion (HU10) con link de WhatsApp (HU11)',
+          security: [{ bearerAuth: [] }],
+          requestBody: {
+            required: true,
+            content: {
+              'application/json': {
+                schema: { $ref: '#/components/schemas/CotizacionRequest' },
+              },
+            },
+          },
+          responses: {
+            201: { description: 'Cotizacion generada' },
+            400: { description: 'Error de validacion' },
+            404: { description: 'Orden no encontrada' },
+          },
+        },
+      },
+      '/api/cotizaciones/{id}': {
+        get: {
+          tags: ['Cotizaciones'],
+          summary: 'Obtener cotizacion',
+          security: [{ bearerAuth: [] }],
+          parameters: [
+            { in: 'path', name: 'id', required: true, schema: { type: 'string' } },
+          ],
+          responses: {
+            200: { description: 'Cotizacion obtenida' },
+            404: { description: 'Cotizacion no encontrada' },
+          },
+        },
+      },
+      '/api/ventas': {
+        get: {
+          tags: ['Ventas'],
+          summary: 'Listar ventas',
+          security: [{ bearerAuth: [] }],
+          responses: {
+            200: { description: 'Ventas obtenidas' },
+          },
+        },
+        post: {
+          tags: ['Ventas'],
+          summary: 'Registrar venta y generar recibo electronico (HU14/HU15)',
+          security: [{ bearerAuth: [] }],
+          requestBody: {
+            required: true,
+            content: {
+              'application/json': {
+                schema: { $ref: '#/components/schemas/VentaRequest' },
+              },
+            },
+          },
+          responses: {
+            201: { description: 'Venta registrada' },
+            400: { description: 'Stock insuficiente o payload invalido' },
+            404: { description: 'Producto no encontrado' },
+          },
+        },
+      },
+      '/api/ventas/{id}': {
+        get: {
+          tags: ['Ventas'],
+          summary: 'Obtener venta/recibo',
+          security: [{ bearerAuth: [] }],
+          parameters: [
+            { in: 'path', name: 'id', required: true, schema: { type: 'string' } },
+          ],
+          responses: {
+            200: { description: 'Venta obtenida' },
+            404: { description: 'Venta no encontrada' },
           },
         },
       },
