@@ -6,8 +6,12 @@
   "scripts": {
     "dev": "nodemon src/server.js",
     "postinstall": "prisma generate",
+    "seed": "node prisma/seed.js",
     "vercel-build": "prisma generate",
     "start": "node src/server.js"
+  },
+  "prisma": {
+    "seed": "node prisma/seed.js"
   },
   "keywords": [
     "express",

@@ -2,6 +2,7 @@ const { randomUUID } = require('crypto');
 const AppError = require('../utils/appError');
 const cotizacionRepository = require('../repositories/cotizacion.repository');
 const ordenRepository = require('../repositories/orden.repository');
+const notificacionService = require('./notificacion.service');
 
 function normalizeText(value, fieldName) {
   if (typeof value !== 'string' || !value.trim()) {
@@ -13,6 +14,10 @@ function normalizeText(value, fieldName) {
 
 function optionalText(value) {
   return typeof value === 'string' && value.trim() ? value.trim() : null;
+}
+
+function getAuthBusinessId(auth) {
+  return auth?.idNegocio || auth?.negocioId || null;
 }
 
 function parseMoney(value, fieldName, defaultValue = 0) {
@@ -62,28 +67,39 @@ function mapCotizacion(cotizacion) {
     observaciones: cotizacion.observaciones,
     estado: cotizacion.estado,
     fechaCreacion: cotizacion.fechaCreacion,
+    idNegocio: cotizacion.idNegocio || null,
     whatsappUrl: buildWhatsappUrl(cotizacion),
   };
 }
 
 function buildWhatsappUrl(cotizacion) {
+  return buildWhatsappUrlWithText(null, buildWhatsappMessage(cotizacion));
+}
+
+function buildWhatsappMessage(cotizacion) {
   const numero = `COT-${String(cotizacion.numero).padStart(4, '0')}`;
   const cliente = cotizacion.orden?.equipo?.cliente?.razonSocial || 'cliente';
   const total = Number(cotizacion.total).toFixed(2);
-  const text = `Hola ${cliente}, tu cotizacion ${numero} de ServiTech tiene un total de Bs ${total}.`;
 
-  return `https://wa.me/?text=${encodeURIComponent(text)}`;
+  return `Hola ${cliente}, tu cotizacion ${numero} de ServiTech tiene un total de Bs ${total}.`;
 }
 
-async function listCotizaciones(query = {}) {
+function buildWhatsappUrlWithText(phone, text) {
+  const normalizedPhone = phone ? String(phone).replace(/\D/g, '') : '';
+  const target = normalizedPhone ? `/${normalizedPhone}` : '';
+
+  return `https://wa.me${target}?text=${encodeURIComponent(text)}`;
+}
+
+async function listCotizaciones(query = {}, auth) {
   const search = optionalText(query.buscar ?? query.search);
-  const cotizaciones = await cotizacionRepository.list(search);
+  const cotizaciones = await cotizacionRepository.list(search, getAuthBusinessId(auth));
 
   return cotizaciones.map(mapCotizacion);
 }
 
-async function getCotizacion(id) {
-  const cotizacion = await cotizacionRepository.findById(id);
+async function getCotizacion(id, auth) {
+  const cotizacion = await cotizacionRepository.findById(id, getAuthBusinessId(auth));
   if (!cotizacion) {
     throw new AppError('Cotizacion no encontrada', 404);
   }
@@ -91,7 +107,24 @@ async function getCotizacion(id) {
   return mapCotizacion(cotizacion);
 }
 
-async function createCotizacion(payload) {
+async function getWhatsappCotizacion(id, auth) {
+  const cotizacion = await cotizacionRepository.findById(id, getAuthBusinessId(auth));
+  if (!cotizacion) {
+    throw new AppError('Cotizacion no encontrada', 404);
+  }
+
+  const telefono = cotizacion.orden?.equipo?.cliente?.usuario?.telefonos?.[0]?.numero;
+  const mensaje = buildWhatsappMessage(cotizacion);
+
+  return {
+    tipo: 'cotizacion',
+    mensaje,
+    whatsappUrl: buildWhatsappUrlWithText(telefono, mensaje),
+    cotizacion: mapCotizacion(cotizacion),
+  };
+}
+
+async function createCotizacion(payload, auth) {
   const ordenId = normalizeText(payload.ordenId ?? payload.idOrden, 'ordenId');
   const descripcion = normalizeText(payload.descripcion, 'descripcion');
   const manoObra = parseMoney(payload.manoObra, 'manoObra');
@@ -103,7 +136,8 @@ async function createCotizacion(payload) {
     throw new AppError('El descuento no puede ser mayor al subtotal', 400);
   }
 
-  const orden = await ordenRepository.findById(ordenId);
+  const idNegocio = getAuthBusinessId(auth);
+  const orden = await ordenRepository.findById(ordenId, idNegocio);
   if (!orden) {
     throw new AppError('Orden de servicio no encontrada', 404);
   }
@@ -121,7 +155,21 @@ async function createCotizacion(payload) {
     estado: optionalText(payload.estado) || 'Pendiente',
     fechaCreacion: new Date(),
     idOrden: orden.id,
+    idNegocio,
   });
+
+  await notificacionService.notifySystem({
+    tipo: 'cotizacion',
+    titulo: 'Cotizacion generada',
+    mensaje: `Se genero la cotizacion COT-${String(cotizacion.numero).padStart(4, '0')} por Bs ${Number(cotizacion.total).toFixed(2)}.`,
+    referenciaId: cotizacion.id,
+    referenciaTipo: 'cotizacion',
+    idNegocio,
+  });
+
+  const estadoCotizado = await ordenRepository.findEstadoByName('Cotizado')
+    || await ordenRepository.createEstado(randomUUID(), 'Cotizado');
+  await ordenRepository.updateOrden(orden.id, { idEstado: estadoCotizado.id });
 
   return mapCotizacion(cotizacion);
 }
@@ -129,5 +177,6 @@ async function createCotizacion(payload) {
 module.exports = {
   listCotizaciones,
   getCotizacion,
+  getWhatsappCotizacion,
   createCotizacion,
 };

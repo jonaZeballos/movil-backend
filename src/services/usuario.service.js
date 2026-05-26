@@ -17,16 +17,47 @@ function normalizeText(value, fieldName) {
   return normalized;
 }
 
+function normalizeEmail(value) {
+  const email = normalizeText(value, 'email').toLowerCase();
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    throw new AppError('El campo email no tiene un formato valido', 400);
+  }
+
+  return email;
+}
+
+function normalizeUsername(value) {
+  const username = normalizeText(value, 'username');
+  if (!/^[a-zA-Z0-9._-]{3,30}$/.test(username)) {
+    throw new AppError(
+      'El campo username debe tener 3 a 30 caracteres y solo letras, numeros, punto, guion o guion bajo',
+      400,
+    );
+  }
+
+  return username;
+}
+
+function normalizePassword(value) {
+  const password = normalizeText(value, 'password');
+  if (password.length < 6) {
+    throw new AppError('El campo password debe tener al menos 6 caracteres', 400);
+  }
+
+  return password;
+}
+
 function parsePhoneNumber(value) {
   if (value === undefined || value === null || value === '') {
     throw new AppError('El campo numero es obligatorio', 400);
   }
 
-  try {
-    return BigInt(value);
-  } catch (error) {
+  const digits = String(value).replace(/\D/g, '');
+  if (!digits) {
     throw new AppError('El campo numero debe ser numerico', 400);
   }
+
+  return BigInt(digits);
 }
 
 function parseDocumentNumber(value) {
@@ -34,11 +65,12 @@ function parseDocumentNumber(value) {
     throw new AppError('El campo numeroDocumento es obligatorio', 400);
   }
 
-  try {
-    return BigInt(value);
-  } catch (error) {
+  const digits = String(value).replace(/\D/g, '');
+  if (!digits) {
     throw new AppError('El campo numeroDocumento debe ser numerico', 400);
   }
+
+  return BigInt(digits);
 }
 
 function parseCreationDate(value) {
@@ -62,6 +94,10 @@ function splitName(fullName) {
   return { nombres, apellidos };
 }
 
+function getAuthBusinessId(auth) {
+  return auth?.idNegocio || auth?.negocioId || null;
+}
+
 async function getRoleId(roleName) {
   if (!roleName) {
     return null;
@@ -81,12 +117,17 @@ async function registrarUsuarioConRol(payload, roleName) {
   const splitFullName = fullName ? splitName(fullName) : null;
   const nombres = splitFullName?.nombres || normalizeText(payload.nombres, 'nombres');
   const apellidos = splitFullName?.apellidos || normalizeText(payload.apellidos, 'apellidos');
-  const email = normalizeText(payload.email, 'email');
-  const username = payload.username ? normalizeText(payload.username, 'username') : email.split('@')[0];
-  const password = normalizeText(payload.password, 'password');
+  const email = normalizeEmail(payload.email);
+  const username = payload.username ? normalizeUsername(payload.username) : normalizeUsername(email.split('@')[0]);
+  const password = normalizePassword(payload.password);
   const fechaCreacion = parseCreationDate(payload.fechaCreacion);
   const numero = parsePhoneNumber(payload.numero ?? payload.telefono ?? '0');
   const normalizedRoleName = roleName ? normalizeText(roleName, 'rol') : null;
+  const idNegocio = payload.idNegocio || null;
+
+  if (!idNegocio) {
+    throw new AppError('No se pudo identificar el negocio del usuario autenticado', 401);
+  }
 
   const userExists = await usuarioRepository.findByUsernameOrEmail(username, email);
   if (userExists) {
@@ -94,7 +135,6 @@ async function registrarUsuarioConRol(payload, roleName) {
   }
 
   const idRol = await getRoleId(normalizedRoleName);
-
   const createdUser = await usuarioRepository.createUserWithPhone({
     id: randomUUID(),
     nombres,
@@ -104,6 +144,7 @@ async function registrarUsuarioConRol(payload, roleName) {
     password: hashPassword(password),
     fechaCreacion,
     idRol,
+    idNegocio,
     telefonos: {
       create: {
         id: randomUUID(),
@@ -115,21 +156,81 @@ async function registrarUsuarioConRol(payload, roleName) {
   return {
     ...createdUser,
     rol: createdUser.rol ? createdUser.rol.rol : null,
+    idNegocio: createdUser.idNegocio,
+    negocio: createdUser.negocio || null,
     numero: numero.toString(),
   };
 }
 
 async function registrarUsuario(payload) {
-  const roleName = payload.rol ? normalizeText(payload.rol, 'rol') : null;
-  return registrarUsuarioConRol(payload, roleName);
+  const fullName = payload.name ? normalizeText(payload.name, 'name') : null;
+  const splitFullName = fullName ? splitName(fullName) : null;
+  const nombres = splitFullName?.nombres || normalizeText(payload.nombres, 'nombres');
+  const apellidos = splitFullName?.apellidos || normalizeText(payload.apellidos, 'apellidos');
+  const email = normalizeEmail(payload.email);
+  const username = payload.username ? normalizeUsername(payload.username) : normalizeUsername(email.split('@')[0]);
+  const password = normalizePassword(payload.password);
+  const fechaCreacion = parseCreationDate(payload.fechaCreacion);
+  const numero = parsePhoneNumber(payload.numero ?? payload.telefono ?? '0');
+  const negocioNombre = payload.negocioNombre
+    ? normalizeText(payload.negocioNombre, 'negocioNombre')
+    : `${nombres} ${apellidos}`.trim() || username;
+
+  const userExists = await usuarioRepository.findByUsernameOrEmail(username, email);
+  if (userExists) {
+    throw new AppError('Ya existe un usuario con ese username o email', 409);
+  }
+
+  const idRol = await getRoleId('admin');
+  const idNegocio = randomUUID();
+  const createdBusiness = await usuarioRepository.createBusinessWithOwner({
+    negocio: {
+      id: idNegocio,
+      nombre: negocioNombre,
+      fechaCreacion: new Date(),
+    },
+    usuario: {
+      id: randomUUID(),
+      nombres,
+      apellidos,
+      username,
+      email,
+      password: hashPassword(password),
+      fechaCreacion,
+      idRol,
+      telefonos: {
+        create: {
+          id: randomUUID(),
+          numero,
+        },
+      },
+    },
+  });
+  const createdUser = createdBusiness.usuarios[0];
+
+  return {
+    id: createdUser.id,
+    nombres: createdUser.nombres,
+    apellidos: createdUser.apellidos,
+    username: createdUser.username,
+    email: createdUser.email,
+    fechaCreacion: createdUser.fechaCreacion,
+    rol: createdUser.rol ? createdUser.rol.rol : null,
+    idNegocio: createdBusiness.id,
+    negocio: {
+      id: createdBusiness.id,
+      nombre: createdBusiness.nombre,
+    },
+    numero: numero.toString(),
+  };
 }
 
-async function registrarUsuarioTecnico(payload) {
-  return registrarUsuarioConRol(payload, 'tecnico');
+async function registrarUsuarioTecnico(payload, auth) {
+  return registrarUsuarioConRol({ ...payload, idNegocio: getAuthBusinessId(auth) }, 'tecnico');
 }
 
-async function registrarUsuarioVentas(payload) {
-  return registrarUsuarioConRol(payload, 'ventas');
+async function registrarUsuarioVentas(payload, auth) {
+  return registrarUsuarioConRol({ ...payload, idNegocio: getAuthBusinessId(auth) }, 'ventas');
 }
 
 function mapUsuario(user) {
@@ -143,28 +244,39 @@ function mapUsuario(user) {
     fechaCreacion: user.fechaCreacion,
     rol: user.rol ? user.rol.rol : null,
     role: user.rol ? user.rol.rol : null,
+    idNegocio: user.idNegocio,
   };
 }
 
-async function listarUsuarios() {
-  const usuarios = await usuarioRepository.listUsers();
+async function listarUsuarios(auth) {
+  const idNegocio = getAuthBusinessId(auth);
+  if (!idNegocio) {
+    throw new AppError('No se pudo identificar el negocio del usuario autenticado', 401);
+  }
+
+  const usuarios = await usuarioRepository.listUsers(idNegocio);
   return usuarios.map(mapUsuario);
 }
 
-async function registrarUsuarioCliente(payload) {
+async function registrarUsuarioCliente(payload, auth) {
   const nombres = normalizeText(payload.nombres, 'nombres');
   const apellidos = normalizeText(payload.apellidos, 'apellidos');
-  const username = normalizeText(payload.username, 'username');
-  const email = normalizeText(payload.email, 'email');
-  const password = normalizeText(payload.password, 'password');
+  const username = normalizeUsername(payload.username);
+  const email = normalizeEmail(payload.email);
+  const password = normalizePassword(payload.password);
   const fechaCreacion = parseCreationDate(payload.fechaCreacion);
   const numero = parsePhoneNumber(payload.numero);
   const razonSocial = normalizeText(payload.razonSocial, 'razonSocial');
   const numeroDocumento = parseDocumentNumber(payload.numeroDocumento);
+  const idNegocio = getAuthBusinessId(auth);
+
+  if (!idNegocio) {
+    throw new AppError('No se pudo identificar el negocio del usuario autenticado', 401);
+  }
 
   const [existingUser, existingClient] = await Promise.all([
     usuarioRepository.findByUsernameOrEmail(username, email),
-    usuarioRepository.findClientByDocumentNumber(numeroDocumento),
+    usuarioRepository.findClientByDocumentNumber(numeroDocumento, idNegocio),
   ]);
 
   if (existingUser) {
@@ -176,7 +288,6 @@ async function registrarUsuarioCliente(payload) {
   }
 
   const idRol = await getRoleId('cliente');
-
   const createdUser = await usuarioRepository.createClientUser({
     id: randomUUID(),
     nombres,
@@ -186,6 +297,7 @@ async function registrarUsuarioCliente(payload) {
     password: hashPassword(password),
     fechaCreacion,
     idRol,
+    idNegocio,
     telefonos: {
       create: {
         id: randomUUID(),
@@ -196,6 +308,7 @@ async function registrarUsuarioCliente(payload) {
       create: {
         razonSocial,
         numeroDocumento,
+        idNegocio,
       },
     },
   });
@@ -208,6 +321,7 @@ async function registrarUsuarioCliente(payload) {
     email: createdUser.email,
     fechaCreacion: createdUser.fechaCreacion,
     rol: createdUser.rol ? createdUser.rol.rol : null,
+    idNegocio: createdUser.idNegocio,
     numero: numero.toString(),
     razonSocial: createdUser.cliente ? createdUser.cliente.razonSocial : null,
     numeroDocumento: createdUser.cliente ? createdUser.cliente.numeroDocumento.toString() : null,
@@ -231,6 +345,8 @@ async function loginUsuario(payload) {
     username: user.username,
     email: user.email,
     fechaCreacion: user.fechaCreacion,
+    idNegocio: user.idNegocio,
+    negocio: user.negocio || null,
     tipoUsuario,
     rol: tipoUsuario,
   };
@@ -241,6 +357,8 @@ async function loginUsuario(payload) {
     email: user.email,
     tipoUsuario,
     rol: tipoUsuario,
+    idNegocio: user.idNegocio,
+    negocioId: user.idNegocio,
   });
 
   return {

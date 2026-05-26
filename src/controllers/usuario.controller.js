@@ -15,7 +15,7 @@ async function registrarUsuario(req, res, next) {
 
 async function registrarUsuarioTecnico(req, res, next) {
   try {
-    const usuario = await usuarioService.registrarUsuarioTecnico(req.body);
+    const usuario = await usuarioService.registrarUsuarioTecnico(req.body, req.auth);
 
     return res.status(201).json({
       mensaje: 'Usuario tecnico registrado correctamente',
@@ -28,7 +28,7 @@ async function registrarUsuarioTecnico(req, res, next) {
 
 async function registrarUsuarioVentas(req, res, next) {
   try {
-    const usuario = await usuarioService.registrarUsuarioVentas(req.body);
+    const usuario = await usuarioService.registrarUsuarioVentas(req.body, req.auth);
 
     return res.status(201).json({
       mensaje: 'Usuario de ventas registrado correctamente',
@@ -41,7 +41,7 @@ async function registrarUsuarioVentas(req, res, next) {
 
 async function listarUsuarios(req, res, next) {
   try {
-    const usuarios = await usuarioService.listarUsuarios();
+    const usuarios = await usuarioService.listarUsuarios(req.auth);
 
     return res.json({
       mensaje: 'Usuarios obtenidos correctamente',
@@ -54,7 +54,7 @@ async function listarUsuarios(req, res, next) {
 
 async function registrarUsuarioCliente(req, res, next) {
   try {
-    const usuario = await usuarioService.registrarUsuarioCliente(req.body);
+    const usuario = await usuarioService.registrarUsuarioCliente(req.body, req.auth);
 
     return res.status(201).json({
       mensaje: 'Cliente registrado correctamente',

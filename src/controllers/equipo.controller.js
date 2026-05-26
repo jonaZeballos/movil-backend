@@ -2,7 +2,7 @@ const equipoService = require('../services/equipo.service');
 
 async function listarEquipos(req, res, next) {
   try {
-    const equipos = await equipoService.listEquipos(req.query);
+    const equipos = await equipoService.listEquipos(req.query, req.auth);
 
     return res.json({
       mensaje: 'Equipos obtenidos correctamente',
@@ -15,7 +15,7 @@ async function listarEquipos(req, res, next) {
 
 async function obtenerEquipo(req, res, next) {
   try {
-    const equipo = await equipoService.getEquipo(req.params.id);
+    const equipo = await equipoService.getEquipo(req.params.id, req.auth);
 
     return res.json({
       mensaje: 'Equipo obtenido correctamente',
@@ -28,7 +28,7 @@ async function obtenerEquipo(req, res, next) {
 
 async function registrarEquipo(req, res, next) {
   try {
-    const equipo = await equipoService.createEquipo(req.body);
+    const equipo = await equipoService.createEquipo(req.body, req.auth);
 
     return res.status(201).json({
       mensaje: 'Equipo registrado correctamente',

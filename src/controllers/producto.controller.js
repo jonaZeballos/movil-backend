@@ -2,7 +2,7 @@ const productoService = require('../services/producto.service');
 
 async function listarProductos(req, res, next) {
   try {
-    const productos = await productoService.listProductos(req.query);
+    const productos = await productoService.listProductos(req.query, req.auth);
 
     return res.json({
       mensaje: 'Productos obtenidos correctamente',
@@ -15,7 +15,7 @@ async function listarProductos(req, res, next) {
 
 async function obtenerProducto(req, res, next) {
   try {
-    const producto = await productoService.getProducto(req.params.id);
+    const producto = await productoService.getProducto(req.params.id, req.auth);
 
     return res.json({
       mensaje: 'Producto obtenido correctamente',
@@ -28,7 +28,7 @@ async function obtenerProducto(req, res, next) {
 
 async function registrarProducto(req, res, next) {
   try {
-    const producto = await productoService.createProducto(req.body);
+    const producto = await productoService.createProducto(req.body, req.auth);
 
     return res.status(201).json({
       mensaje: 'Producto registrado correctamente',
@@ -41,7 +41,7 @@ async function registrarProducto(req, res, next) {
 
 async function actualizarProducto(req, res, next) {
   try {
-    const producto = await productoService.updateProducto(req.params.id, req.body);
+    const producto = await productoService.updateProducto(req.params.id, req.body, req.auth);
 
     return res.json({
       mensaje: 'Producto actualizado correctamente',

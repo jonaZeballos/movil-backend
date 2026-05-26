@@ -2,7 +2,7 @@ const ordenService = require('../services/orden.service');
 
 async function listarOrdenes(req, res, next) {
   try {
-    const ordenes = await ordenService.listOrdenes(req.query);
+    const ordenes = await ordenService.listOrdenes(req.query, req.auth);
 
     return res.json({
       mensaje: 'Ordenes obtenidas correctamente',
@@ -15,7 +15,7 @@ async function listarOrdenes(req, res, next) {
 
 async function obtenerOrden(req, res, next) {
   try {
-    const orden = await ordenService.getOrden(req.params.id);
+    const orden = await ordenService.getOrden(req.params.id, req.auth);
 
     return res.json({
       mensaje: 'Orden obtenida correctamente',
@@ -28,7 +28,7 @@ async function obtenerOrden(req, res, next) {
 
 async function crearOrden(req, res, next) {
   try {
-    const orden = await ordenService.createOrden(req.body);
+    const orden = await ordenService.createOrden(req.body, req.auth);
 
     return res.status(201).json({
       mensaje: 'Orden creada correctamente',
@@ -41,7 +41,7 @@ async function crearOrden(req, res, next) {
 
 async function actualizarOrden(req, res, next) {
   try {
-    const orden = await ordenService.updateOrden(req.params.id, req.body);
+    const orden = await ordenService.updateOrden(req.params.id, req.body, req.auth);
 
     return res.json({
       mensaje: 'Orden actualizada correctamente',
@@ -54,7 +54,7 @@ async function actualizarOrden(req, res, next) {
 
 async function actualizarEstadoOrden(req, res, next) {
   try {
-    const orden = await ordenService.updateEstadoOrden(req.params.id, req.body);
+    const orden = await ordenService.updateEstadoOrden(req.params.id, req.body, req.auth);
 
     return res.json({
       mensaje: 'Estado de orden actualizado correctamente',
@@ -67,7 +67,7 @@ async function actualizarEstadoOrden(req, res, next) {
 
 async function actualizarObservacionesOrden(req, res, next) {
   try {
-    const orden = await ordenService.updateObservacionesOrden(req.params.id, req.body);
+    const orden = await ordenService.updateObservacionesOrden(req.params.id, req.body, req.auth);
 
     return res.json({
       mensaje: 'Observaciones de orden actualizadas correctamente',

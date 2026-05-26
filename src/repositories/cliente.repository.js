@@ -1,8 +1,11 @@
 const prisma = require('../utils/prismaClient');
 
-function findByDocumentNumber(numeroDocumento) {
-  return prisma.cliente.findUnique({
-    where: { numeroDocumento },
+function findByDocumentNumber(numeroDocumento, idNegocio) {
+  return prisma.cliente.findFirst({
+    where: {
+      numeroDocumento,
+      ...(idNegocio ? { idNegocio } : {}),
+    },
     include: {
       usuario: {
         include: {
@@ -13,7 +16,11 @@ function findByDocumentNumber(numeroDocumento) {
   });
 }
 
-function findById(idUsuario) {
+function buildBusinessFilter(idNegocio) {
+  return idNegocio ? { idNegocio } : {};
+}
+
+function findById(idUsuario, idNegocio) {
   return prisma.cliente.findUnique({
     where: { idUsuario },
     include: {
@@ -23,10 +30,77 @@ function findById(idUsuario) {
         },
       },
     },
+  }).then((cliente) => {
+    if (cliente && idNegocio && cliente.idNegocio !== idNegocio) return null;
+    return cliente;
   });
 }
 
-function list(search, documentNumber, searchDocumentNumber) {
+function findHistorialById(idUsuario, idNegocio) {
+  return prisma.cliente.findUnique({
+    where: { idUsuario },
+    include: {
+      usuario: {
+        include: {
+          telefonos: true,
+        },
+      },
+      equipos: {
+        include: {
+          tipoEquipo: true,
+          modelo: {
+            include: {
+              marca: true,
+            },
+          },
+          ordenes: {
+            include: {
+              estado: true,
+              prioridad: true,
+              tecnico: {
+                select: {
+                  id: true,
+                  nombres: true,
+                  apellidos: true,
+                  username: true,
+                  email: true,
+                },
+              },
+              cotizaciones: {
+                orderBy: {
+                  numero: 'desc',
+                },
+              },
+            },
+            orderBy: {
+              codigo: 'desc',
+            },
+          },
+        },
+        orderBy: {
+          fechaRegistro: 'desc',
+        },
+      },
+      ventas: {
+        include: {
+          detalles: {
+            include: {
+              producto: true,
+            },
+          },
+        },
+        orderBy: {
+          numero: 'desc',
+        },
+      },
+    },
+  }).then((cliente) => {
+    if (cliente && idNegocio && cliente.idNegocio !== idNegocio) return null;
+    return cliente;
+  });
+}
+
+function list(search, documentNumber, searchDocumentNumber, idNegocio) {
   const searchFilters = search
     ? [
         { razonSocial: { contains: search, mode: 'insensitive' } },
@@ -45,6 +119,7 @@ function list(search, documentNumber, searchDocumentNumber) {
           ? { OR: searchFilters }
           : {},
         documentNumber ? { numeroDocumento: documentNumber } : {},
+        buildBusinessFilter(idNegocio),
       ],
     },
     include: {
@@ -74,6 +149,7 @@ function createClientUser(data) {
 module.exports = {
   findByDocumentNumber,
   findById,
+  findHistorialById,
   list,
   createClientUser,
 };

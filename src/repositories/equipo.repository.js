@@ -40,19 +40,22 @@ function createEquipo(data) {
   });
 }
 
-function list(search) {
+function list(search, idNegocio) {
   return prisma.equipo.findMany({
-    where: search
-      ? {
-          OR: [
-            { nroSerie: { contains: search, mode: 'insensitive' } },
-            { cliente: { razonSocial: { contains: search, mode: 'insensitive' } } },
-            { tipoEquipo: { nombre: { contains: search, mode: 'insensitive' } } },
-            { modelo: { nombreModelo: { contains: search, mode: 'insensitive' } } },
-            { modelo: { marca: { nombre: { contains: search, mode: 'insensitive' } } } },
-          ],
-        }
-      : undefined,
+    where: {
+      ...(idNegocio ? { idNegocio } : {}),
+      ...(search
+        ? {
+            OR: [
+              { nroSerie: { contains: search, mode: 'insensitive' } },
+              { cliente: { razonSocial: { contains: search, mode: 'insensitive' } } },
+              { tipoEquipo: { nombre: { contains: search, mode: 'insensitive' } } },
+              { modelo: { nombreModelo: { contains: search, mode: 'insensitive' } } },
+              { modelo: { marca: { nombre: { contains: search, mode: 'insensitive' } } } },
+            ],
+          }
+        : {}),
+    },
     include: {
       cliente: { include: { usuario: true } },
       tipoEquipo: true,
@@ -64,7 +67,7 @@ function list(search) {
   });
 }
 
-function findById(id) {
+function findById(id, idNegocio) {
   return prisma.equipo.findUnique({
     where: { id },
     include: {
@@ -72,6 +75,9 @@ function findById(id) {
       tipoEquipo: true,
       modelo: { include: { marca: true } },
     },
+  }).then((equipo) => {
+    if (equipo && idNegocio && equipo.idNegocio !== idNegocio) return null;
+    return equipo;
   });
 }
 

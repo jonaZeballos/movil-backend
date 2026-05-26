@@ -11,11 +11,29 @@ datasource db {
   provider = "postgresql"
 }
 
+model Negocio {
+  id            String   @id @map("id_negocio") @db.VarChar(1000)
+  nombre        String   @db.VarChar(200)
+  fechaCreacion DateTime @default(now()) @map("fecha_creacion") @db.Date
+
+  usuarios       Usuario[]
+  clientes       Cliente[]
+  equipos        Equipo[]
+  ordenes        OrdenServicio[]
+  productos      Producto[]
+  cotizaciones   Cotizacion[]
+  ventas         Venta[]
+  notificaciones Notificacion[]
+
+  @@map("negocio")
+}
+
 model Rol {
   id       String    @id @map("id_rol") @db.VarChar(1000)
   rol      String    @db.VarChar(200)
   usuarios Usuario[]
 
+  @@unique([rol])
   @@map("roles")
 }
 
@@ -31,21 +49,32 @@ model Usuario {
   idRol String? @map("id_rol") @db.VarChar(1000)
   rol   Rol?    @relation(fields: [idRol], references: [id])
 
+  idNegocio String  @map("id_negocio") @db.VarChar(1000)
+  negocio   Negocio @relation(fields: [idNegocio], references: [id])
+
   cliente   Cliente?
   telefonos Telefono[]
   ordenes   OrdenServicio[]
 
+  @@unique([username])
+  @@unique([email])
+  @@index([idNegocio])
   @@map("usuario")
 }
 
 model Cliente {
   idUsuario       String @id @map("id_usuario") @db.VarChar(1000)
   razonSocial     String @map("razon_social") @db.VarChar(100)
-  numeroDocumento BigInt @unique @map("numero_documento") @db.BigInt
+  numeroDocumento BigInt @map("numero_documento") @db.BigInt
 
-  usuario Usuario  @relation(fields: [idUsuario], references: [id], onDelete: Cascade)
-  equipos Equipo[]
+  usuario   Usuario  @relation(fields: [idUsuario], references: [id], onDelete: Cascade)
+  idNegocio String   @map("id_negocio") @db.VarChar(1000)
+  negocio   Negocio  @relation(fields: [idNegocio], references: [id])
+  equipos   Equipo[]
+  ventas    Venta[]
 
+  @@unique([idNegocio, numeroDocumento])
+  @@index([idNegocio])
   @@map("cliente")
 }
 
@@ -97,12 +126,15 @@ model Equipo {
   idCliente    String @map("id_cliente") @db.VarChar(1000)
   idTipoEquipo String @map("id_tipo_equipo") @db.VarChar(1000)
   idModelo     String @map("id_modelo") @db.VarChar(1000)
+  idNegocio    String @map("id_negocio") @db.VarChar(1000)
 
   cliente    Cliente         @relation(fields: [idCliente], references: [idUsuario])
   tipoEquipo TipoEquipo      @relation(fields: [idTipoEquipo], references: [id])
   modelo     Modelo          @relation(fields: [idModelo], references: [id])
+  negocio    Negocio         @relation(fields: [idNegocio], references: [id])
   ordenes    OrdenServicio[]
 
+  @@index([idNegocio])
   @@map("equipo")
 }
 
@@ -111,6 +143,7 @@ model EstadoOrdenServicio {
   nombre  String          @map("nombre_estado_ops") @db.VarChar(20)
   ordenes OrdenServicio[]
 
+  @@unique([nombre])
   @@map("estado_orden_servicio")
 }
 
@@ -119,6 +152,7 @@ model Prioridad {
   prioridad String          @db.VarChar(100)
   ordenes   OrdenServicio[]
 
+  @@unique([prioridad])
   @@map("prioridad")
 }
 
@@ -135,13 +169,17 @@ model OrdenServicio {
   idTecnico   String? @map("id_usuario") @db.VarChar(1000)
   idEstado    String  @map("id_estado_orden_pago") @db.VarChar(1000)
   idPrioridad String  @map("id_prioridad") @db.VarChar(1000)
+  idNegocio   String  @map("id_negocio") @db.VarChar(1000)
 
   equipo       Equipo              @relation(fields: [idEquipo], references: [id])
   tecnico      Usuario?            @relation(fields: [idTecnico], references: [id])
   estado       EstadoOrdenServicio @relation(fields: [idEstado], references: [id])
   prioridad    Prioridad           @relation(fields: [idPrioridad], references: [id])
+  negocio      Negocio             @relation(fields: [idNegocio], references: [id])
   cotizaciones Cotizacion[]
 
+  @@unique([idNegocio, codigo])
+  @@index([idNegocio])
   @@map("orden_servicio")
 }
 
@@ -156,8 +194,11 @@ model Producto {
   stockMinimo   Int      @default(1) @map("stock_minimo")
   fechaCreacion DateTime @default(now()) @map("fecha_creacion") @db.Date
 
+  idNegocio     String         @map("id_negocio") @db.VarChar(1000)
+  negocio       Negocio        @relation(fields: [idNegocio], references: [id])
   detallesVenta VentaDetalle[]
 
+  @@index([idNegocio])
   @@map("producto")
 }
 
@@ -173,9 +214,13 @@ model Cotizacion {
   estado        String   @default("Pendiente") @db.VarChar(50)
   fechaCreacion DateTime @default(now()) @map("fecha_creacion") @db.Date
 
-  idOrden String        @map("id_orden_servicio") @db.VarChar(1000)
-  orden   OrdenServicio @relation(fields: [idOrden], references: [id])
+  idOrden   String        @map("id_orden_servicio") @db.VarChar(1000)
+  orden     OrdenServicio @relation(fields: [idOrden], references: [id])
+  idNegocio String        @map("id_negocio") @db.VarChar(1000)
+  negocio   Negocio       @relation(fields: [idNegocio], references: [id])
 
+  @@unique([idNegocio, numero])
+  @@index([idNegocio])
   @@map("cotizacion")
 }
 
@@ -187,8 +232,15 @@ model Venta {
   reciboCodigo  String   @map("recibo_codigo") @db.VarChar(50)
   fechaCreacion DateTime @default(now()) @map("fecha_creacion") @db.Date
 
-  detalles VentaDetalle[]
+  idCliente String?        @map("id_cliente") @db.VarChar(1000)
+  cliente   Cliente?       @relation(fields: [idCliente], references: [idUsuario])
+  idNegocio String         @map("id_negocio") @db.VarChar(1000)
+  negocio   Negocio        @relation(fields: [idNegocio], references: [id])
+  detalles  VentaDetalle[]
 
+  @@unique([idNegocio, numero])
+  @@unique([idNegocio, reciboCodigo])
+  @@index([idNegocio])
   @@map("venta")
 }
 
@@ -205,4 +257,20 @@ model VentaDetalle {
   producto Producto @relation(fields: [idProducto], references: [id])
 
   @@map("venta_detalle")
+}
+
+model Notificacion {
+  id             String   @id @map("id_notificacion") @db.VarChar(1000)
+  tipo           String   @db.VarChar(50)
+  titulo         String   @db.VarChar(200)
+  mensaje        String   @db.VarChar(1024)
+  leida          Boolean  @default(false)
+  referenciaId   String?  @map("referencia_id") @db.VarChar(1000)
+  referenciaTipo String?  @map("referencia_tipo") @db.VarChar(50)
+  fechaCreacion  DateTime @default(now()) @map("fecha_creacion") @db.Date
+  idNegocio      String   @map("id_negocio") @db.VarChar(1000)
+  negocio        Negocio  @relation(fields: [idNegocio], references: [id])
+
+  @@index([idNegocio])
+  @@map("notificacion")
 }

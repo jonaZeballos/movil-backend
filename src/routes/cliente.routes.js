@@ -2,6 +2,7 @@ const { Router } = require('express');
 const {
   listarClientes,
   obtenerCliente,
+  obtenerHistorialCliente,
   registrarCliente,
 } = require('../controllers/cliente.controller');
 const { requireAuth, requireRoles } = require('../middlewares');
@@ -9,6 +10,7 @@ const { requireAuth, requireRoles } = require('../middlewares');
 const router = Router();
 
 router.get('/', requireAuth, requireRoles(['admin', 'tecnico', 'ventas']), listarClientes);
+router.get('/:id/historial', requireAuth, requireRoles(['admin', 'tecnico', 'ventas']), obtenerHistorialCliente);
 router.get('/:id', requireAuth, requireRoles(['admin', 'tecnico', 'ventas']), obtenerCliente);
 router.post('/', requireAuth, requireRoles(['admin', 'tecnico', 'ventas']), registrarCliente);
 

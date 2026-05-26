@@ -1,10 +1,16 @@
 const { randomUUID } = require('crypto');
 const AppError = require('../utils/appError');
+const clienteRepository = require('../repositories/cliente.repository');
 const productoRepository = require('../repositories/producto.repository');
 const ventaRepository = require('../repositories/venta.repository');
+const notificacionService = require('./notificacion.service');
 
 function optionalText(value) {
   return typeof value === 'string' && value.trim() ? value.trim() : null;
+}
+
+function getAuthBusinessId(auth) {
+  return auth?.idNegocio || auth?.negocioId || null;
 }
 
 function parseQuantity(value) {
@@ -18,13 +24,24 @@ function parseQuantity(value) {
 
 function mapVenta(venta) {
   const reciboCodigo = venta.reciboCodigo;
+  const clienteTelefono = venta.cliente?.usuario?.telefonos?.[0]?.numero;
 
   return {
     id: venta.id,
     numero: venta.numero,
     codigo: reciboCodigo,
     reciboCodigo,
-    clienteNombre: venta.clienteNombre,
+    clienteId: venta.idCliente,
+    clienteNombre: venta.cliente?.razonSocial || venta.clienteNombre,
+    cliente: venta.cliente
+      ? {
+          id: venta.cliente.idUsuario,
+          razonSocial: venta.cliente.razonSocial,
+          numeroDocumento: venta.cliente.numeroDocumento.toString(),
+          email: venta.cliente.usuario?.email || null,
+          telefono: clienteTelefono ? clienteTelefono.toString() : null,
+        }
+      : null,
     total: Number(venta.total),
     fechaCreacion: venta.fechaCreacion,
     detalles: venta.detalles.map((detalle) => ({
@@ -38,13 +55,56 @@ function mapVenta(venta) {
   };
 }
 
-async function listVentas() {
-  const ventas = await ventaRepository.list();
+function mapReciboVenta(venta) {
+  const ventaMap = mapVenta(venta);
+  const lineas = ventaMap.detalles.map((detalle) => ({
+    producto: detalle.nombre,
+    cantidad: detalle.cantidad,
+    precioUnitario: detalle.precioUnitario,
+    subtotal: detalle.subtotal,
+  }));
+  const texto = [
+    `Recibo ${ventaMap.reciboCodigo} - ServiTech`,
+    `Cliente: ${ventaMap.clienteNombre || 'Consumidor final'}`,
+    ...lineas.map((linea) => `${linea.cantidad} x ${linea.producto} - Bs ${linea.subtotal.toFixed(2)}`),
+    `Total: Bs ${ventaMap.total.toFixed(2)}`,
+  ].join('\n');
+
+  return {
+    codigo: ventaMap.reciboCodigo,
+    fecha: ventaMap.fechaCreacion,
+    negocio: {
+      nombre: 'ServiTech',
+      descripcion: 'Servicio tecnico de computadoras y venta de equipos, repuestos y accesorios',
+    },
+    cliente: ventaMap.cliente || {
+      id: null,
+      razonSocial: ventaMap.clienteNombre || 'Consumidor final',
+      numeroDocumento: null,
+      email: null,
+      telefono: null,
+    },
+    items: lineas,
+    total: ventaMap.total,
+    texto,
+    venta: ventaMap,
+  };
+}
+
+function buildWhatsappUrl(phone, text) {
+  const normalizedPhone = phone ? String(phone).replace(/\D/g, '') : '';
+  const target = normalizedPhone ? `/${normalizedPhone}` : '';
+
+  return `https://wa.me${target}?text=${encodeURIComponent(text)}`;
+}
+
+async function listVentas(auth) {
+  const ventas = await ventaRepository.list(getAuthBusinessId(auth));
   return ventas.map(mapVenta);
 }
 
-async function getVenta(id) {
-  const venta = await ventaRepository.findById(id);
+async function getVenta(id, auth) {
+  const venta = await ventaRepository.findById(id, getAuthBusinessId(auth));
   if (!venta) {
     throw new AppError('Venta no encontrada', 404);
   }
@@ -52,10 +112,46 @@ async function getVenta(id) {
   return mapVenta(venta);
 }
 
-async function createVenta(payload) {
+async function getReciboVenta(id, auth) {
+  const venta = await ventaRepository.findById(id, getAuthBusinessId(auth));
+  if (!venta) {
+    throw new AppError('Venta no encontrada', 404);
+  }
+
+  return mapReciboVenta(venta);
+}
+
+async function getWhatsappReciboVenta(id, auth) {
+  const venta = await ventaRepository.findById(id, getAuthBusinessId(auth));
+  if (!venta) {
+    throw new AppError('Venta no encontrada', 404);
+  }
+
+  const recibo = mapReciboVenta(venta);
+
+  return {
+    tipo: 'recibo',
+    mensaje: recibo.texto,
+    whatsappUrl: buildWhatsappUrl(recibo.cliente.telefono, recibo.texto),
+    recibo,
+  };
+}
+
+async function createVenta(payload, auth) {
   const items = Array.isArray(payload.items) ? payload.items : [];
   if (!items.length) {
     throw new AppError('Debe enviar al menos un producto para registrar la venta', 400);
+  }
+
+  const clienteId = optionalText(payload.clienteId ?? payload.idCliente);
+  const idNegocio = getAuthBusinessId(auth);
+  let cliente = null;
+
+  if (clienteId) {
+    cliente = await clienteRepository.findById(clienteId, idNegocio);
+    if (!cliente) {
+      throw new AppError('Cliente no encontrado', 404);
+    }
   }
 
   const detalles = [];
@@ -68,7 +164,7 @@ async function createVenta(payload) {
     }
 
     const cantidad = parseQuantity(item.cantidad);
-    const producto = await productoRepository.findById(productoId);
+    const producto = await productoRepository.findById(productoId, idNegocio);
     if (!producto) {
       throw new AppError('Producto no encontrado', 404);
     }
@@ -102,13 +198,38 @@ async function createVenta(payload) {
       venta: {
         id: randomUUID(),
         numero,
-        clienteNombre: optionalText(payload.clienteNombre),
+        idCliente: cliente ? cliente.idUsuario : null,
+        idNegocio,
+        clienteNombre: cliente?.razonSocial || optionalText(payload.clienteNombre),
         total,
         reciboCodigo,
         fechaCreacion: new Date(),
       },
       detalles,
+      idNegocio,
     });
+
+    await notificacionService.notifySystem({
+      tipo: 'venta',
+      titulo: 'Venta registrada',
+      mensaje: `Se registro el recibo ${venta.reciboCodigo} por Bs ${Number(venta.total).toFixed(2)}.`,
+      referenciaId: venta.id,
+      referenciaTipo: 'venta',
+      idNegocio,
+    });
+
+    for (const detalle of venta.detalles) {
+      if (detalle.producto && detalle.producto.stock <= detalle.producto.stockMinimo) {
+        await notificacionService.notifySystem({
+          tipo: 'stock_bajo',
+          titulo: 'Stock bajo',
+          mensaje: `El producto ${detalle.producto.nombre} tiene stock ${detalle.producto.stock}.`,
+          referenciaId: detalle.producto.id,
+          referenciaTipo: 'producto',
+          idNegocio,
+        });
+      }
+    }
 
     return mapVenta(venta);
   } catch (error) {
@@ -119,5 +240,8 @@ async function createVenta(payload) {
 module.exports = {
   listVentas,
   getVenta,
+  getReciboVenta,
+  getWhatsappReciboVenta,
   createVenta,
+  mapReciboVenta,
 };
