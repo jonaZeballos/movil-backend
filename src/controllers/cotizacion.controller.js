@@ -2,7 +2,7 @@ const cotizacionService = require('../services/cotizacion.service');
 
 async function listarCotizaciones(req, res, next) {
   try {
-    const cotizaciones = await cotizacionService.listCotizaciones(req.query);
+    const cotizaciones = await cotizacionService.listCotizaciones(req.query, req.auth);
 
     return res.json({
       mensaje: 'Cotizaciones obtenidas correctamente',
@@ -15,7 +15,7 @@ async function listarCotizaciones(req, res, next) {
 
 async function obtenerCotizacion(req, res, next) {
   try {
-    const cotizacion = await cotizacionService.getCotizacion(req.params.id);
+    const cotizacion = await cotizacionService.getCotizacion(req.params.id, req.auth);
 
     return res.json({
       mensaje: 'Cotizacion obtenida correctamente',
@@ -26,9 +26,22 @@ async function obtenerCotizacion(req, res, next) {
   }
 }
 
+async function obtenerWhatsappCotizacion(req, res, next) {
+  try {
+    const whatsapp = await cotizacionService.getWhatsappCotizacion(req.params.id, req.auth);
+
+    return res.json({
+      mensaje: 'Link de WhatsApp para cotizacion obtenido correctamente',
+      data: whatsapp,
+    });
+  } catch (error) {
+    return next(error);
+  }
+}
+
 async function registrarCotizacion(req, res, next) {
   try {
-    const cotizacion = await cotizacionService.createCotizacion(req.body);
+    const cotizacion = await cotizacionService.createCotizacion(req.body, req.auth);
 
     return res.status(201).json({
       mensaje: 'Cotizacion generada correctamente',
@@ -42,5 +55,6 @@ async function registrarCotizacion(req, res, next) {
 module.exports = {
   listarCotizaciones,
   obtenerCotizacion,
+  obtenerWhatsappCotizacion,
   registrarCotizacion,
 };

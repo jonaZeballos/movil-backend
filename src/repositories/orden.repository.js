@@ -32,18 +32,21 @@ function createOrden(data) {
   });
 }
 
-function list(search) {
+function list(search, idNegocio) {
   return prisma.ordenServicio.findMany({
-    where: search
-      ? {
-          OR: [
-            { diagnostico: { contains: search, mode: 'insensitive' } },
-            { observaciones: { contains: search, mode: 'insensitive' } },
-            { equipo: { nroSerie: { contains: search, mode: 'insensitive' } } },
-            { equipo: { cliente: { razonSocial: { contains: search, mode: 'insensitive' } } } },
-          ],
-        }
-      : undefined,
+    where: {
+      ...(idNegocio ? { idNegocio } : {}),
+      ...(search
+        ? {
+            OR: [
+              { diagnostico: { contains: search, mode: 'insensitive' } },
+              { observaciones: { contains: search, mode: 'insensitive' } },
+              { equipo: { nroSerie: { contains: search, mode: 'insensitive' } } },
+              { equipo: { cliente: { razonSocial: { contains: search, mode: 'insensitive' } } } },
+            ],
+          }
+        : {}),
+    },
     include: includeOrden(),
     orderBy: {
       codigo: 'desc',
@@ -51,10 +54,13 @@ function list(search) {
   });
 }
 
-function findById(id) {
+function findById(id, idNegocio) {
   return prisma.ordenServicio.findUnique({
     where: { id },
     include: includeOrden(),
+  }).then((orden) => {
+    if (orden && idNegocio && orden.idNegocio !== idNegocio) return null;
+    return orden;
   });
 }
 

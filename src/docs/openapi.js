@@ -25,6 +25,9 @@ const options = {
       { name: 'Productos', description: 'Inventario y control de stock' },
       { name: 'Cotizaciones', description: 'Generacion de cotizaciones' },
       { name: 'Ventas', description: 'Registro de ventas y recibos' },
+      { name: 'Reportes', description: 'Reportes de servicios, ventas e inventario' },
+      { name: 'Notificaciones', description: 'Gestion de notificaciones del sistema' },
+      { name: 'Negocio', description: 'Datos del negocio asociado al usuario' },
     ],
     components: {
       securitySchemes: {
@@ -50,8 +53,9 @@ const options = {
         },
         RegistroUsuarioRequest: {
           type: 'object',
-          required: ['nombres', 'apellidos', 'username', 'email', 'password', 'fechaCreacion', 'numero'],
+          required: ['nombres', 'apellidos', 'username', 'email', 'password', 'numero'],
           properties: {
+            negocioNombre: { type: 'string', example: 'ServiTech Alex' },
             nombres: { type: 'string', example: 'Jonathan' },
             apellidos: { type: 'string', example: 'Perez' },
             username: { type: 'string', example: 'jonaperez' },
@@ -59,7 +63,6 @@ const options = {
             password: { type: 'string', example: '123456' },
             fechaCreacion: { type: 'string', format: 'date', example: '2026-04-26' },
             numero: { type: 'string', example: '987654321' },
-            rol: { type: 'string', example: 'admin' },
           },
         },
         RegistroClienteRequest: {
@@ -250,6 +253,7 @@ const options = {
             id: { type: 'string' },
             numero: { type: 'integer', example: 1 },
             reciboCodigo: { type: 'string', example: 'REC-0001' },
+            clienteId: { type: 'string', nullable: true },
             clienteNombre: { type: 'string', nullable: true, example: 'Juan Perez' },
             total: { type: 'number', example: 560 },
             detalles: {
@@ -271,6 +275,7 @@ const options = {
           type: 'object',
           required: ['items'],
           properties: {
+            clienteId: { type: 'string', example: 'id-cliente' },
             clienteNombre: { type: 'string', example: 'Juan Perez' },
             items: {
               type: 'array',
@@ -308,7 +313,8 @@ const options = {
       '/api/usuarios/registro': {
         post: {
           tags: ['Usuarios'],
-          summary: 'Registrar usuario general',
+          summary: 'Registrar negocio y usuario admin propietario',
+          description: 'Registro publico inicial: crea un negocio y registra al usuario como admin propietario de ese negocio.',
           requestBody: {
             required: true,
             content: {
@@ -345,6 +351,41 @@ const options = {
           responses: {
             200: { description: 'Usuarios obtenidos' },
             401: { description: 'No autenticado' },
+            403: { description: 'Sin permisos' },
+          },
+        },
+      },
+      '/api/negocio/me': {
+        get: {
+          tags: ['Negocio'],
+          summary: 'Obtener negocio actual',
+          security: [{ bearerAuth: [] }],
+          responses: {
+            200: { description: 'Negocio obtenido' },
+            400: { description: 'Usuario sin negocio asociado' },
+            401: { description: 'No autenticado' },
+          },
+        },
+        patch: {
+          tags: ['Negocio'],
+          summary: 'Actualizar negocio actual (solo admin)',
+          security: [{ bearerAuth: [] }],
+          requestBody: {
+            required: true,
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    nombre: { type: 'string', example: 'ServiTech Centro' },
+                  },
+                },
+              },
+            },
+          },
+          responses: {
+            200: { description: 'Negocio actualizado' },
+            400: { description: 'Payload invalido' },
             403: { description: 'Sin permisos' },
           },
         },
@@ -405,7 +446,8 @@ const options = {
       '/api/usuarios/registro-cliente': {
         post: {
           tags: ['Usuarios'],
-          summary: 'Registrar cliente',
+          summary: 'Registrar cliente del negocio autenticado',
+          security: [{ bearerAuth: [] }],
           requestBody: {
             required: true,
             content: {
@@ -430,6 +472,8 @@ const options = {
               },
             },
             400: { description: 'Error de validacion', content: { 'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } } } },
+            401: { description: 'No autenticado', content: { 'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } } } },
+            403: { description: 'Sin permisos', content: { 'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } } } },
             409: { description: 'Usuario o documento duplicado', content: { 'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } } } },
           },
         },
@@ -534,6 +578,20 @@ const options = {
             201: { description: 'Cliente registrado' },
             400: { description: 'Error de validacion' },
             409: { description: 'Cliente duplicado' },
+          },
+        },
+      },
+      '/api/clientes/{id}/historial': {
+        get: {
+          tags: ['Clientes'],
+          summary: 'Consultar historial de cliente (HU18)',
+          security: [{ bearerAuth: [] }],
+          parameters: [
+            { in: 'path', name: 'id', required: true, schema: { type: 'string' } },
+          ],
+          responses: {
+            200: { description: 'Historial con cliente, equipos, ordenes, cotizaciones y ventas' },
+            404: { description: 'Cliente no encontrado' },
           },
         },
       },
@@ -848,6 +906,20 @@ const options = {
           },
         },
       },
+      '/api/cotizaciones/{id}/whatsapp': {
+        get: {
+          tags: ['Cotizaciones'],
+          summary: 'Obtener link de WhatsApp para cotizacion (HU13)',
+          security: [{ bearerAuth: [] }],
+          parameters: [
+            { in: 'path', name: 'id', required: true, schema: { type: 'string' } },
+          ],
+          responses: {
+            200: { description: 'Mensaje y URL de WhatsApp obtenidos' },
+            404: { description: 'Cotizacion no encontrada' },
+          },
+        },
+      },
       '/api/ventas': {
         get: {
           tags: ['Ventas'],
@@ -887,6 +959,122 @@ const options = {
           responses: {
             200: { description: 'Venta obtenida' },
             404: { description: 'Venta no encontrada' },
+          },
+        },
+      },
+      '/api/ventas/{id}/recibo': {
+        get: {
+          tags: ['Ventas'],
+          summary: 'Obtener recibo electronico estructurado (HU16)',
+          security: [{ bearerAuth: [] }],
+          parameters: [
+            { in: 'path', name: 'id', required: true, schema: { type: 'string' } },
+          ],
+          responses: {
+            200: { description: 'Recibo obtenido' },
+            404: { description: 'Venta no encontrada' },
+          },
+        },
+      },
+      '/api/ventas/{id}/whatsapp': {
+        get: {
+          tags: ['Ventas'],
+          summary: 'Obtener link de WhatsApp para recibo (HU17)',
+          security: [{ bearerAuth: [] }],
+          parameters: [
+            { in: 'path', name: 'id', required: true, schema: { type: 'string' } },
+          ],
+          responses: {
+            200: { description: 'Mensaje y URL de WhatsApp obtenidos' },
+            404: { description: 'Venta no encontrada' },
+          },
+        },
+      },
+      '/api/reportes/resumen': {
+        get: {
+          tags: ['Reportes'],
+          summary: 'Reporte resumen (HU19)',
+          security: [{ bearerAuth: [] }],
+          parameters: [
+            { in: 'query', name: 'desde', schema: { type: 'string', format: 'date' } },
+            { in: 'query', name: 'hasta', schema: { type: 'string', format: 'date' } },
+          ],
+          responses: {
+            200: { description: 'Resumen obtenido' },
+          },
+        },
+      },
+      '/api/reportes/servicios': {
+        get: {
+          tags: ['Reportes'],
+          summary: 'Reporte de servicios (HU19)',
+          security: [{ bearerAuth: [] }],
+          parameters: [
+            { in: 'query', name: 'desde', schema: { type: 'string', format: 'date' } },
+            { in: 'query', name: 'hasta', schema: { type: 'string', format: 'date' } },
+          ],
+          responses: {
+            200: { description: 'Reporte de servicios obtenido' },
+          },
+        },
+      },
+      '/api/reportes/ventas': {
+        get: {
+          tags: ['Reportes'],
+          summary: 'Reporte de ventas (HU19)',
+          security: [{ bearerAuth: [] }],
+          parameters: [
+            { in: 'query', name: 'desde', schema: { type: 'string', format: 'date' } },
+            { in: 'query', name: 'hasta', schema: { type: 'string', format: 'date' } },
+          ],
+          responses: {
+            200: { description: 'Reporte de ventas obtenido' },
+          },
+        },
+      },
+      '/api/reportes/inventario': {
+        get: {
+          tags: ['Reportes'],
+          summary: 'Reporte de inventario (HU19)',
+          security: [{ bearerAuth: [] }],
+          responses: {
+            200: { description: 'Reporte de inventario obtenido' },
+          },
+        },
+      },
+      '/api/notificaciones': {
+        get: {
+          tags: ['Notificaciones'],
+          summary: 'Listar notificaciones del sistema (HU20)',
+          security: [{ bearerAuth: [] }],
+          parameters: [
+            { in: 'query', name: 'leida', schema: { type: 'boolean' } },
+            { in: 'query', name: 'tipo', schema: { type: 'string' } },
+          ],
+          responses: {
+            200: { description: 'Notificaciones obtenidas' },
+          },
+        },
+        post: {
+          tags: ['Notificaciones'],
+          summary: 'Crear notificacion manual (HU20)',
+          security: [{ bearerAuth: [] }],
+          responses: {
+            201: { description: 'Notificacion creada' },
+          },
+        },
+      },
+      '/api/notificaciones/{id}/leida': {
+        patch: {
+          tags: ['Notificaciones'],
+          summary: 'Marcar notificacion como leida (HU20)',
+          security: [{ bearerAuth: [] }],
+          parameters: [
+            { in: 'path', name: 'id', required: true, schema: { type: 'string' } },
+          ],
+          responses: {
+            200: { description: 'Notificacion marcada como leida' },
+            404: { description: 'Notificacion no encontrada' },
           },
         },
       },

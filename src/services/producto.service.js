@@ -14,6 +14,10 @@ function optionalText(value) {
   return typeof value === 'string' && value.trim() ? value.trim() : null;
 }
 
+function getAuthBusinessId(auth) {
+  return auth?.idNegocio || auth?.negocioId || null;
+}
+
 function parseMoney(value, fieldName) {
   const number = Number(String(value ?? '').replace(',', '.'));
   if (!Number.isFinite(number) || number < 0) {
@@ -48,18 +52,19 @@ function mapProducto(producto) {
     stockMinimo: producto.stockMinimo,
     stockBajo: producto.stock <= producto.stockMinimo,
     fechaCreacion: producto.fechaCreacion,
+    idNegocio: producto.idNegocio || null,
   };
 }
 
-async function listProductos(query = {}) {
+async function listProductos(query = {}, auth) {
   const search = optionalText(query.buscar ?? query.search);
-  const productos = await productoRepository.list(search);
+  const productos = await productoRepository.list(search, getAuthBusinessId(auth));
 
   return productos.map(mapProducto);
 }
 
-async function getProducto(id) {
-  const producto = await productoRepository.findById(id);
+async function getProducto(id, auth) {
+  const producto = await productoRepository.findById(id, getAuthBusinessId(auth));
   if (!producto) {
     throw new AppError('Producto no encontrado', 404);
   }
@@ -67,7 +72,7 @@ async function getProducto(id) {
   return mapProducto(producto);
 }
 
-async function createProducto(payload) {
+async function createProducto(payload, auth) {
   const nombre = normalizeText(payload.nombre, 'nombre');
   const precio = parseMoney(payload.precio, 'precio');
   const stock = parseStock(payload.stock, 'stock');
@@ -83,13 +88,14 @@ async function createProducto(payload) {
     stock,
     stockMinimo,
     fechaCreacion: new Date(),
+    idNegocio: getAuthBusinessId(auth),
   });
 
   return mapProducto(producto);
 }
 
-async function updateProducto(id, payload) {
-  const existing = await productoRepository.findById(id);
+async function updateProducto(id, payload, auth) {
+  const existing = await productoRepository.findById(id, getAuthBusinessId(auth));
   if (!existing) {
     throw new AppError('Producto no encontrado', 404);
   }

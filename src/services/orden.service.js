@@ -2,6 +2,7 @@ const { randomUUID } = require('crypto');
 const AppError = require('../utils/appError');
 const equipoRepository = require('../repositories/equipo.repository');
 const ordenRepository = require('../repositories/orden.repository');
+const notificacionService = require('./notificacion.service');
 
 function normalizeText(value, fieldName) {
   if (typeof value !== 'string') {
@@ -18,6 +19,10 @@ function normalizeText(value, fieldName) {
 
 function optionalText(value) {
   return typeof value === 'string' && value.trim() ? value.trim() : null;
+}
+
+function getAuthBusinessId(auth) {
+  return auth?.idNegocio || auth?.negocioId || null;
 }
 
 function parseOptionalNumber(value, defaultValue) {
@@ -84,18 +89,19 @@ function mapOrden(orden) {
     fechaEntrega: orden.fechaEntrega,
     observacionesTexto: orden.observaciones || null,
     observaciones: orden.observaciones ? orden.observaciones.split('\n').filter(Boolean) : [],
+    idNegocio: orden.idNegocio || null,
   };
 }
 
-async function listOrdenes(query = {}) {
+async function listOrdenes(query = {}, auth) {
   const search = optionalText(query.buscar ?? query.search);
-  const ordenes = await ordenRepository.list(search);
+  const ordenes = await ordenRepository.list(search, getAuthBusinessId(auth));
 
   return ordenes.map(mapOrden);
 }
 
-async function getOrden(id) {
-  const orden = await ordenRepository.findById(id);
+async function getOrden(id, auth) {
+  const orden = await ordenRepository.findById(id, getAuthBusinessId(auth));
   if (!orden) {
     throw new AppError('Orden de servicio no encontrada', 404);
   }
@@ -103,7 +109,7 @@ async function getOrden(id) {
   return mapOrden(orden);
 }
 
-async function createOrden(payload) {
+async function createOrden(payload, auth) {
   const equipoId = normalizeText(payload.equipoId ?? payload.idEquipo, 'equipoId');
   const diagnostico = normalizeText(payload.diagnostico ?? payload.failure, 'diagnostico');
   const estadoNombre = optionalText(payload.estado ?? payload.status) || 'Recibido';
@@ -111,7 +117,8 @@ async function createOrden(payload) {
   const garantiaDias = parseOptionalNumber(payload.garantiaDias, 0);
   const observaciones = optionalText(payload.observaciones);
 
-  const equipo = await equipoRepository.findById(equipoId);
+  const idNegocio = getAuthBusinessId(auth);
+  const equipo = await equipoRepository.findById(equipoId, idNegocio);
   if (!equipo) {
     throw new AppError('Equipo no encontrado', 404);
   }
@@ -131,13 +138,14 @@ async function createOrden(payload) {
     idTecnico: optionalText(payload.tecnicoId ?? payload.idTecnico),
     idEstado: estado.id,
     idPrioridad: prioridad.id,
+    idNegocio,
   });
 
   return mapOrden(orden);
 }
 
-async function updateOrden(id, payload) {
-  const existingOrden = await ordenRepository.findById(id);
+async function updateOrden(id, payload, auth) {
+  const existingOrden = await ordenRepository.findById(id, getAuthBusinessId(auth));
   if (!existingOrden) {
     throw new AppError('Orden de servicio no encontrada', 404);
   }
@@ -181,9 +189,9 @@ async function updateOrden(id, payload) {
   return mapOrden(updatedOrden);
 }
 
-async function updateEstadoOrden(id, payload) {
+async function updateEstadoOrden(id, payload, auth) {
   const estadoNombre = normalizeText(payload.estado ?? payload.status, 'estado');
-  const existingOrden = await ordenRepository.findById(id);
+  const existingOrden = await ordenRepository.findById(id, getAuthBusinessId(auth));
   if (!existingOrden) {
     throw new AppError('Orden de servicio no encontrada', 404);
   }
@@ -191,11 +199,20 @@ async function updateEstadoOrden(id, payload) {
   const estado = await getExistingEstado(estadoNombre);
   const updatedOrden = await ordenRepository.updateOrden(id, { idEstado: estado.id });
 
+  await notificacionService.notifySystem({
+    tipo: 'orden_estado',
+    titulo: 'Estado de orden actualizado',
+    mensaje: `La orden #${String(updatedOrden.codigo).padStart(4, '0')} cambio a ${estado.nombre}.`,
+    referenciaId: updatedOrden.id,
+    referenciaTipo: 'orden',
+    idNegocio: updatedOrden.idNegocio,
+  });
+
   return mapOrden(updatedOrden);
 }
 
-async function updateObservacionesOrden(id, payload) {
-  const existingOrden = await ordenRepository.findById(id);
+async function updateObservacionesOrden(id, payload, auth) {
+  const existingOrden = await ordenRepository.findById(id, getAuthBusinessId(auth));
   if (!existingOrden) {
     throw new AppError('Orden de servicio no encontrada', 404);
   }

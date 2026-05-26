@@ -20,6 +20,10 @@ function optionalText(value) {
   return typeof value === 'string' && value.trim() ? value.trim() : null;
 }
 
+function getAuthBusinessId(auth) {
+  return auth?.idNegocio || auth?.negocioId || null;
+}
+
 async function getOrCreateTipo(nombre) {
   const existingTipo = await equipoRepository.findTipoByName(nombre);
   if (existingTipo) {
@@ -67,18 +71,19 @@ function mapEquipo(equipo) {
     nroSerie: equipo.nroSerie,
     serial: equipo.nroSerie,
     fechaRegistro: equipo.fechaRegistro,
+    idNegocio: equipo.idNegocio || null,
   };
 }
 
-async function listEquipos(query = {}) {
+async function listEquipos(query = {}, auth) {
   const search = optionalText(query.buscar ?? query.search);
-  const equipos = await equipoRepository.list(search);
+  const equipos = await equipoRepository.list(search, getAuthBusinessId(auth));
 
   return equipos.map(mapEquipo);
 }
 
-async function getEquipo(id) {
-  const equipo = await equipoRepository.findById(id);
+async function getEquipo(id, auth) {
+  const equipo = await equipoRepository.findById(id, getAuthBusinessId(auth));
   if (!equipo) {
     throw new AppError('Equipo no encontrado', 404);
   }
@@ -86,14 +91,15 @@ async function getEquipo(id) {
   return mapEquipo(equipo);
 }
 
-async function createEquipo(payload) {
+async function createEquipo(payload, auth) {
   const clienteId = normalizeText(payload.clienteId ?? payload.idCliente, 'clienteId');
   const tipoNombre = normalizeText(payload.tipo ?? payload.type, 'tipo');
   const marcaNombre = normalizeText(payload.marca ?? payload.brand, 'marca');
   const modeloNombre = normalizeText(payload.modelo ?? payload.model, 'modelo');
   const nroSerie = normalizeText(payload.nroSerie ?? payload.serial, 'nroSerie');
 
-  const cliente = await clienteRepository.findById(clienteId);
+  const idNegocio = getAuthBusinessId(auth);
+  const cliente = await clienteRepository.findById(clienteId, idNegocio);
   if (!cliente) {
     throw new AppError('Cliente no encontrado', 404);
   }
@@ -108,6 +114,7 @@ async function createEquipo(payload) {
     idCliente: cliente.idUsuario,
     idTipoEquipo: tipo.id,
     idModelo: modelo.id,
+    idNegocio,
   });
 
   return mapEquipo(equipo);

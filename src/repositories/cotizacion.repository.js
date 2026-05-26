@@ -6,7 +6,15 @@ function includeCotizacion() {
       include: {
         equipo: {
           include: {
-            cliente: true,
+            cliente: {
+              include: {
+                usuario: {
+                  include: {
+                    telefonos: true,
+                  },
+                },
+              },
+            },
             tipoEquipo: true,
             modelo: { include: { marca: true } },
           },
@@ -16,27 +24,33 @@ function includeCotizacion() {
   };
 }
 
-function list(search) {
+function list(search, idNegocio) {
   return prisma.cotizacion.findMany({
-    where: search
-      ? {
-          OR: [
-            { descripcion: { contains: search, mode: 'insensitive' } },
-            { observaciones: { contains: search, mode: 'insensitive' } },
-            { estado: { contains: search, mode: 'insensitive' } },
-            { orden: { equipo: { cliente: { razonSocial: { contains: search, mode: 'insensitive' } } } } },
-          ],
-        }
-      : undefined,
+    where: {
+      ...(idNegocio ? { idNegocio } : {}),
+      ...(search
+        ? {
+            OR: [
+              { descripcion: { contains: search, mode: 'insensitive' } },
+              { observaciones: { contains: search, mode: 'insensitive' } },
+              { estado: { contains: search, mode: 'insensitive' } },
+              { orden: { equipo: { cliente: { razonSocial: { contains: search, mode: 'insensitive' } } } } },
+            ],
+          }
+        : {}),
+    },
     include: includeCotizacion(),
     orderBy: { numero: 'desc' },
   });
 }
 
-function findById(id) {
+function findById(id, idNegocio) {
   return prisma.cotizacion.findUnique({
     where: { id },
     include: includeCotizacion(),
+  }).then((cotizacion) => {
+    if (cotizacion && idNegocio && cotizacion.idNegocio !== idNegocio) return null;
+    return cotizacion;
   });
 }
 

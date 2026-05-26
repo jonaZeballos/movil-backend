@@ -2,7 +2,7 @@ const clienteService = require('../services/cliente.service');
 
 async function listarClientes(req, res, next) {
   try {
-    const clientes = await clienteService.listClientes(req.query);
+    const clientes = await clienteService.listClientes(req.query, req.auth);
 
     return res.json({
       mensaje: 'Clientes obtenidos correctamente',
@@ -15,7 +15,7 @@ async function listarClientes(req, res, next) {
 
 async function obtenerCliente(req, res, next) {
   try {
-    const cliente = await clienteService.getCliente(req.params.id);
+    const cliente = await clienteService.getCliente(req.params.id, req.auth);
 
     return res.json({
       mensaje: 'Cliente obtenido correctamente',
@@ -26,9 +26,22 @@ async function obtenerCliente(req, res, next) {
   }
 }
 
+async function obtenerHistorialCliente(req, res, next) {
+  try {
+    const historial = await clienteService.getHistorialCliente(req.params.id, req.auth);
+
+    return res.json({
+      mensaje: 'Historial de cliente obtenido correctamente',
+      data: historial,
+    });
+  } catch (error) {
+    return next(error);
+  }
+}
+
 async function registrarCliente(req, res, next) {
   try {
-    const cliente = await clienteService.createCliente(req.body);
+    const cliente = await clienteService.createCliente(req.body, req.auth);
 
     return res.status(201).json({
       mensaje: 'Cliente registrado correctamente',
@@ -42,5 +55,6 @@ async function registrarCliente(req, res, next) {
 module.exports = {
   listarClientes,
   obtenerCliente,
+  obtenerHistorialCliente,
   registrarCliente,
 };

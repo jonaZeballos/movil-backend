@@ -16,7 +16,7 @@ function findByUsernameOrEmail(username, email) {
 function findByUsernameOrEmailForLogin(identifier) {
   return prisma.usuario.findFirst({
     where: {
-      OR: [{ username: identifier }, { email: identifier }],
+      OR: [{ username: identifier }, { email: identifier.toLowerCase() }],
     },
     select: {
       id: true,
@@ -26,6 +26,13 @@ function findByUsernameOrEmailForLogin(identifier) {
       email: true,
       password: true,
       fechaCreacion: true,
+      idNegocio: true,
+      negocio: {
+        select: {
+          id: true,
+          nombre: true,
+        },
+      },
       rol: {
         select: {
           rol: true,
@@ -68,6 +75,13 @@ function createUserWithPhone(data) {
       username: true,
       email: true,
       fechaCreacion: true,
+      idNegocio: true,
+      negocio: {
+        select: {
+          id: true,
+          nombre: true,
+        },
+      },
       rol: {
         select: {
           rol: true,
@@ -77,10 +91,11 @@ function createUserWithPhone(data) {
   });
 }
 
-function listUsers() {
+function listUsers(idNegocio) {
   return prisma.usuario.findMany({
     where: {
       cliente: null,
+      ...(idNegocio ? { idNegocio } : {}),
     },
     select: {
       id: true,
@@ -89,6 +104,7 @@ function listUsers() {
       username: true,
       email: true,
       fechaCreacion: true,
+      idNegocio: true,
       rol: {
         select: {
           rol: true,
@@ -101,10 +117,11 @@ function listUsers() {
   });
 }
 
-function findClientByDocumentNumber(numeroDocumento) {
-  return prisma.cliente.findUnique({
+function findClientByDocumentNumber(numeroDocumento, idNegocio) {
+  return prisma.cliente.findFirst({
     where: {
       numeroDocumento,
+      ...(idNegocio ? { idNegocio } : {}),
     },
     select: {
       idUsuario: true,
@@ -123,6 +140,7 @@ function createClientUser(data) {
       username: true,
       email: true,
       fechaCreacion: true,
+      idNegocio: true,
       rol: {
         select: {
           rol: true,
@@ -138,6 +156,24 @@ function createClientUser(data) {
   });
 }
 
+function createBusinessWithOwner({ negocio, usuario }) {
+  return prisma.negocio.create({
+    data: {
+      ...negocio,
+      usuarios: {
+        create: usuario,
+      },
+    },
+    include: {
+      usuarios: {
+        include: {
+          rol: true,
+        },
+      },
+    },
+  });
+}
+
 module.exports = {
   findByUsernameOrEmail,
   findByUsernameOrEmailForLogin,
@@ -147,4 +183,5 @@ module.exports = {
   listUsers,
   findClientByDocumentNumber,
   createClientUser,
+  createBusinessWithOwner,
 };

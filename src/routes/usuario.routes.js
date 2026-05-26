@@ -15,7 +15,7 @@ router.get('/', requireAuth, requireAdmin, listarUsuarios);
 router.post('/registro', registrarUsuario);
 router.post('/registro-tecnico', requireAuth, requireAdmin, registrarUsuarioTecnico);
 router.post('/registro-ventas', requireAuth, requireAdmin, registrarUsuarioVentas);
-router.post('/registro-cliente', registrarUsuarioCliente);
+router.post('/registro-cliente', requireAuth, requireAdmin, registrarUsuarioCliente);
 router.post('/login', loginUsuario);
 
 module.exports = router;
