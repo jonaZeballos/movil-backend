@@ -36,7 +36,21 @@ function requireAdmin(req, res, next) {
   return next();
 }
 
+function requireRoles(allowedRoles) {
+  return (req, res, next) => {
+    const role = (req.auth && (req.auth.rol || req.auth.tipoUsuario)) || null;
+    const normalizedRole = role ? role.toLowerCase() : null;
+
+    if (!normalizedRole || !allowedRoles.includes(normalizedRole)) {
+      return next(new AppError('No tienes permisos para realizar esta accion', 403));
+    }
+
+    return next();
+  };
+}
+
 module.exports = {
   requireAuth,
   requireAdmin,
+  requireRoles,
 };

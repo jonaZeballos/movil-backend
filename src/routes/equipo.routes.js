@@ -4,12 +4,12 @@ const {
   obtenerEquipo,
   registrarEquipo,
 } = require('../controllers/equipo.controller');
-const { requireAuth } = require('../middlewares');
+const { requireAuth, requireRoles } = require('../middlewares');
 
 const router = Router();
 
-router.get('/', requireAuth, listarEquipos);
-router.get('/:id', requireAuth, obtenerEquipo);
-router.post('/', requireAuth, registrarEquipo);
+router.get('/', requireAuth, requireRoles(['admin', 'tecnico']), listarEquipos);
+router.get('/:id', requireAuth, requireRoles(['admin', 'tecnico']), obtenerEquipo);
+router.post('/', requireAuth, requireRoles(['admin', 'tecnico']), registrarEquipo);
 
 module.exports = router;
