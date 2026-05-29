@@ -96,7 +96,11 @@ async function createEquipo(payload, auth) {
   const tipoNombre = normalizeText(payload.tipo ?? payload.type, 'tipo');
   const marcaNombre = normalizeText(payload.marca ?? payload.brand, 'marca');
   const modeloNombre = normalizeText(payload.modelo ?? payload.model, 'modelo');
-  const nroSerie = normalizeText(payload.nroSerie ?? payload.serial, 'nroSerie');
+  const serieIngresada = optionalText(payload.nroSerie ?? payload.serial);
+  if (serieIngresada && serieIngresada.length < 3) {
+    throw new AppError('El numero de serie debe tener al menos 3 caracteres', 400);
+  }
+  const nroSerie = serieIngresada || `SIN-SERIE-${randomUUID().slice(0, 8)}`;
 
   const idNegocio = getAuthBusinessId(auth);
   const cliente = await clienteRepository.findById(clienteId, idNegocio);
