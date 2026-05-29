@@ -145,6 +145,7 @@ function mapCotizacion(cotizacion) {
     fechaValidez: validoHasta,
     activa,
     vencida: !activa,
+    realizadoPor: null,
     idNegocio: cotizacion.idNegocio || null,
     negocio: cotizacion.orden?.negocio
       ? {
@@ -183,6 +184,7 @@ function buildWhatsappMessage(cotizacion) {
     '',
     `Cliente: ${cliente}`,
     `Telefono: ${normalizeWhatsappPhone(telefono) || 'No registrado'}`,
+    'Cotizacion realizada por: Usuario no disponible',
     `Orden: #${String(cotizacion.orden?.codigo || '').padStart(4, '0')}`,
     `Equipo: ${equipoTexto}`,
     `Diagnostico: ${cotizacion.orden?.diagnostico || 'No registrado'}`,

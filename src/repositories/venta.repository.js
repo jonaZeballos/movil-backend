@@ -2,6 +2,7 @@ const prisma = require('../utils/prismaClient');
 
 function includeVenta() {
   return {
+    negocio: true,
     cliente: {
       include: {
         usuario: {

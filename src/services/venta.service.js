@@ -66,6 +66,13 @@ function mapVenta(venta) {
     descuento,
     total,
     fechaCreacion: venta.fechaCreacion,
+    negocio: venta.negocio
+      ? {
+          id: venta.negocio.id,
+          nombre: venta.negocio.nombre,
+        }
+      : null,
+    realizadoPor: null,
     detalles: venta.detalles.map((detalle) => ({
       id: detalle.id,
       productoId: detalle.idProducto,
@@ -96,7 +103,7 @@ function mapReciboVenta(venta) {
     codigo: ventaMap.reciboCodigo,
     fecha: ventaMap.fechaCreacion,
     negocio: {
-      nombre: 'ServiTech',
+      nombre: venta.negocio?.nombre || 'ServiTech',
       descripcion: 'Servicio tecnico de computadoras y venta de equipos, repuestos y accesorios',
     },
     cliente: ventaMap.cliente || {
@@ -112,6 +119,7 @@ function mapReciboVenta(venta) {
     total: ventaMap.total,
     texto,
     venta: ventaMap,
+    realizadoPor: null,
   };
 }
 
