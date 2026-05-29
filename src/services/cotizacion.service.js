@@ -4,6 +4,8 @@ const cotizacionRepository = require('../repositories/cotizacion.repository');
 const ordenRepository = require('../repositories/orden.repository');
 const notificacionService = require('./notificacion.service');
 
+const COTIZACION_VALIDEZ_DIAS = 1;
+
 function normalizeText(value, fieldName) {
   if (typeof value !== 'string' || !value.trim()) {
     throw new AppError(`El campo ${fieldName} es obligatorio`, 400);
@@ -33,8 +35,42 @@ function parseMoney(value, fieldName, defaultValue = 0) {
   return number;
 }
 
+function normalizeWhatsappPhone(phone) {
+  const digits = phone ? String(phone).replace(/\D/g, '') : '';
+
+  if (!digits) {
+    return '';
+  }
+
+  if (digits.length === 8) {
+    return `591${digits}`;
+  }
+
+  if (digits.length === 9 && digits.startsWith('0')) {
+    return `591${digits.slice(1)}`;
+  }
+
+  return digits;
+}
+
+function getValidoHasta(cotizacion) {
+  const fechaBase = cotizacion?.fechaCreacion ? new Date(cotizacion.fechaCreacion) : new Date();
+  fechaBase.setDate(fechaBase.getDate() + COTIZACION_VALIDEZ_DIAS);
+  return fechaBase;
+}
+
+function isCotizacionActiva(cotizacion) {
+  if (!cotizacion?.fechaCreacion) {
+    return false;
+  }
+
+  return getValidoHasta(cotizacion).getTime() >= Date.now();
+}
+
 function mapOrdenResumen(orden) {
   const equipo = orden?.equipo;
+  const cliente = equipo?.cliente;
+  const telefono = cliente?.usuario?.telefonos?.[0]?.numero;
 
   return orden
     ? {
@@ -42,6 +78,27 @@ function mapOrdenResumen(orden) {
         codigo: orden.codigo,
         code: `#${String(orden.codigo).padStart(4, '0')}`,
         clientName: equipo?.cliente?.razonSocial || null,
+        cliente: cliente
+          ? {
+              id: cliente.idUsuario,
+              razonSocial: cliente.razonSocial,
+              nombre: cliente.razonSocial,
+              telefono: telefono ? telefono.toString() : null,
+            }
+          : null,
+        equipo: equipo
+          ? {
+              id: equipo.id,
+              nombre: `${equipo.tipoEquipo?.nombre || ''} ${equipo.modelo?.marca?.nombre || ''} ${equipo.modelo?.nombreModelo || ''}`.trim(),
+              nroSerie: equipo.nroSerie,
+            }
+          : null,
+        negocio: orden.negocio
+          ? {
+              id: orden.negocio.id,
+              nombre: orden.negocio.nombre,
+            }
+          : null,
         equipmentName: equipo
           ? `${equipo.tipoEquipo?.nombre || ''} ${equipo.modelo?.marca?.nombre || ''} ${equipo.modelo?.nombreModelo || ''}`.trim()
           : null,
@@ -54,6 +111,8 @@ function mapCotizacion(cotizacion) {
   const numero = `COT-${String(cotizacion.numero).padStart(4, '0')}`;
   const cliente = cotizacion.orden?.equipo?.cliente;
   const telefono = cliente?.usuario?.telefonos?.[0]?.numero;
+  const validoHasta = getValidoHasta(cotizacion);
+  const activa = isCotizacionActiva(cotizacion);
 
   return {
     id: cotizacion.id,
@@ -77,24 +136,37 @@ function mapCotizacion(cotizacion) {
     observaciones: cotizacion.observaciones,
     estado: cotizacion.estado,
     fechaCreacion: cotizacion.fechaCreacion,
+    fechaEmision: cotizacion.fechaCreacion,
+    validoHasta,
+    fechaValidez: validoHasta,
+    activa,
+    vencida: !activa,
     idNegocio: cotizacion.idNegocio || null,
+    negocio: cotizacion.orden?.negocio
+      ? {
+          id: cotizacion.orden.negocio.id,
+          nombre: cotizacion.orden.negocio.nombre,
+        }
+      : null,
     whatsappUrl: buildWhatsappUrl(cotizacion),
   };
 }
 
 function buildWhatsappUrl(cotizacion) {
-  return buildWhatsappUrlWithText(null, buildWhatsappMessage(cotizacion));
+  const telefono = cotizacion.orden?.equipo?.cliente?.usuario?.telefonos?.[0]?.numero;
+  return buildWhatsappUrlWithText(telefono, buildWhatsappMessage(cotizacion));
 }
 
 function buildWhatsappMessage(cotizacion) {
   const numero = `COT-${String(cotizacion.numero).padStart(4, '0')}`;
-  const cliente = cotizacion.orden?.equipo?.cliente?.razonSocial || 'cliente';
+  const clienteData = cotizacion.orden?.equipo?.cliente;
+  const cliente = clienteData?.razonSocial || 'cliente';
+  const telefono = clienteData?.usuario?.telefonos?.[0]?.numero;
   const negocio = cotizacion.orden?.negocio?.nombre || 'ServiTech';
   const total = Number(cotizacion.total).toFixed(2);
   const subtotal = Number(cotizacion.manoObra) + Number(cotizacion.repuestos);
   const emitida = cotizacion.fechaCreacion ? new Date(cotizacion.fechaCreacion) : new Date();
-  const validaHasta = new Date(emitida);
-  validaHasta.setDate(validaHasta.getDate() + 7);
+  const validaHasta = getValidoHasta(cotizacion);
   const equipo = cotizacion.orden?.equipo;
   const equipoTexto = equipo
     ? `${equipo.tipoEquipo?.nombre || 'Equipo'} ${equipo.modelo?.marca?.nombre || ''} ${equipo.modelo?.nombreModelo || ''}`.trim()
@@ -102,10 +174,11 @@ function buildWhatsappMessage(cotizacion) {
 
   return [
     `*${negocio} - Cotizacion ${numero}*`,
-    `Fecha: ${emitida.toLocaleDateString('es-BO')}`,
-    `Valida hasta: ${validaHasta.toLocaleDateString('es-BO')}`,
+    `Fecha de emision: ${emitida.toLocaleDateString('es-BO')}`,
+    `Fecha de validez: ${validaHasta.toLocaleDateString('es-BO')}`,
     '',
     `Cliente: ${cliente}`,
+    `Telefono: ${normalizeWhatsappPhone(telefono) || 'No registrado'}`,
     `Orden: #${String(cotizacion.orden?.codigo || '').padStart(4, '0')}`,
     `Equipo: ${equipoTexto}`,
     `Diagnostico: ${cotizacion.orden?.diagnostico || 'No registrado'}`,
@@ -123,7 +196,7 @@ function buildWhatsappMessage(cotizacion) {
 }
 
 function buildWhatsappUrlWithText(phone, text) {
-  const normalizedPhone = phone ? String(phone).replace(/\D/g, '') : '';
+  const normalizedPhone = normalizeWhatsappPhone(phone);
   const target = normalizedPhone ? `/${normalizedPhone}` : '';
 
   return `https://wa.me${target}?text=${encodeURIComponent(text)}`;
@@ -181,8 +254,13 @@ async function createCotizacion(payload, auth) {
   }
 
   const existingCotizacion = await cotizacionRepository.findByOrderId(orden.id, idNegocio);
-  if (existingCotizacion) {
-    return mapCotizacion(existingCotizacion);
+  if (existingCotizacion && isCotizacionActiva(existingCotizacion)) {
+    return {
+      ...mapCotizacion(existingCotizacion),
+      yaExistia: true,
+      cotizacionActiva: true,
+      mensaje: 'Esta orden ya tiene una cotizacion activa',
+    };
   }
 
   const lastCotizacion = await cotizacionRepository.getLastCotizacion();

@@ -9,9 +9,9 @@ const { requireAuth, requireRoles } = require('../middlewares');
 
 const router = Router();
 
-router.get('/', requireAuth, requireRoles(['admin', 'tecnico']), listarCotizaciones);
-router.get('/:id/whatsapp', requireAuth, requireRoles(['admin', 'tecnico']), obtenerWhatsappCotizacion);
-router.get('/:id', requireAuth, requireRoles(['admin', 'tecnico']), obtenerCotizacion);
+router.get('/', requireAuth, requireRoles(['admin', 'tecnico', 'ventas']), listarCotizaciones);
+router.get('/:id/whatsapp', requireAuth, requireRoles(['admin', 'tecnico', 'ventas']), obtenerWhatsappCotizacion);
+router.get('/:id', requireAuth, requireRoles(['admin', 'tecnico', 'ventas']), obtenerCotizacion);
 router.post('/', requireAuth, requireRoles(['admin', 'tecnico']), registrarCotizacion);
 
 module.exports = router;

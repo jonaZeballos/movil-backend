@@ -241,7 +241,26 @@ const options = {
             descuento: { type: 'number', example: 0 },
             total: { type: 'number', example: 400 },
             estado: { type: 'string', example: 'Pendiente' },
-            whatsappUrl: { type: 'string', example: 'https://wa.me/?text=...' },
+            fechaEmision: { type: 'string', format: 'date-time' },
+            validoHasta: { type: 'string', format: 'date-time' },
+            activa: { type: 'boolean', example: true },
+            vencida: { type: 'boolean', example: false },
+            cliente: {
+              type: 'object',
+              properties: {
+                id: { type: 'string' },
+                nombre: { type: 'string', example: 'Juan Perez' },
+                telefono: { type: 'string', example: '76543210' },
+              },
+            },
+            negocio: {
+              type: 'object',
+              properties: {
+                id: { type: 'string' },
+                nombre: { type: 'string', example: 'ServiTech Centro' },
+              },
+            },
+            whatsappUrl: { type: 'string', example: 'https://wa.me/59176543210?text=...' },
           },
         },
         CotizacionRequest: {
@@ -921,7 +940,8 @@ const options = {
       '/api/cotizaciones/{id}/whatsapp': {
         get: {
           tags: ['Cotizaciones'],
-          summary: 'Obtener link de WhatsApp para cotizacion (HU13)',
+          summary: 'Obtener mensaje y link de WhatsApp para cotizacion (HU13)',
+          description: 'Usa el telefono registrado del cliente. Si el telefono boliviano tiene 8 digitos, se normaliza con prefijo 591.',
           security: [{ bearerAuth: [] }],
           parameters: [
             { in: 'path', name: 'id', required: true, schema: { type: 'string' } },

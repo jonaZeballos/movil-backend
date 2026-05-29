@@ -4,6 +4,8 @@ const equipoRepository = require('../repositories/equipo.repository');
 const ordenRepository = require('../repositories/orden.repository');
 const notificacionService = require('./notificacion.service');
 
+const COTIZACION_VALIDEZ_DIAS = 1;
+
 function normalizeText(value, fieldName) {
   if (typeof value !== 'string') {
     throw new AppError(`El campo ${fieldName} es obligatorio`, 400);
@@ -65,22 +67,46 @@ async function getOrCreatePrioridad(prioridad) {
   return ordenRepository.createPrioridad(randomUUID(), prioridad);
 }
 
+function getCotizacionValidoHasta(cotizacion) {
+  const fechaBase = cotizacion?.fechaCreacion ? new Date(cotizacion.fechaCreacion) : new Date();
+  fechaBase.setDate(fechaBase.getDate() + COTIZACION_VALIDEZ_DIAS);
+  return fechaBase;
+}
+
+function isCotizacionActiva(cotizacion) {
+  if (!cotizacion?.fechaCreacion) {
+    return false;
+  }
+
+  return getCotizacionValidoHasta(cotizacion).getTime() >= Date.now();
+}
+
 function mapOrden(orden) {
   const equipo = orden.equipo;
   const cotizaciones = Array.isArray(orden.cotizaciones)
-    ? orden.cotizaciones.map((cotizacion) => ({
-        id: cotizacion.id,
-        numero: `COT-${String(cotizacion.numero).padStart(4, '0')}`,
-        numeroInterno: cotizacion.numero,
-        descripcion: cotizacion.descripcion,
-        manoObra: Number(cotizacion.manoObra),
-        repuestos: Number(cotizacion.repuestos),
-        descuento: Number(cotizacion.descuento),
-        total: Number(cotizacion.total),
-        observaciones: cotizacion.observaciones,
-        estado: cotizacion.estado,
-        fechaCreacion: cotizacion.fechaCreacion,
-      }))
+    ? orden.cotizaciones.map((cotizacion) => {
+        const validoHasta = getCotizacionValidoHasta(cotizacion);
+        const activa = isCotizacionActiva(cotizacion);
+
+        return {
+          id: cotizacion.id,
+          numero: `COT-${String(cotizacion.numero).padStart(4, '0')}`,
+          numeroInterno: cotizacion.numero,
+          descripcion: cotizacion.descripcion,
+          manoObra: Number(cotizacion.manoObra),
+          repuestos: Number(cotizacion.repuestos),
+          descuento: Number(cotizacion.descuento),
+          total: Number(cotizacion.total),
+          observaciones: cotizacion.observaciones,
+          estado: cotizacion.estado,
+          fechaCreacion: cotizacion.fechaCreacion,
+          fechaEmision: cotizacion.fechaCreacion,
+          validoHasta,
+          fechaValidez: validoHasta,
+          activa,
+          vencida: !activa,
+        };
+      })
     : [];
 
   return {
