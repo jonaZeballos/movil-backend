@@ -126,6 +126,15 @@ const options = {
                 fechaCreacion: { type: 'string', format: 'date-time' },
                 tipoUsuario: { type: 'string', nullable: true },
                 rol: { type: 'string', nullable: true },
+                idNegocio: { type: 'string' },
+                negocio: {
+                  type: 'object',
+                  nullable: true,
+                  properties: {
+                    id: { type: 'string' },
+                    nombre: { type: 'string' },
+                  },
+                },
               },
             },
           },
@@ -255,6 +264,8 @@ const options = {
             reciboCodigo: { type: 'string', example: 'REC-0001' },
             clienteId: { type: 'string', nullable: true },
             clienteNombre: { type: 'string', nullable: true, example: 'Juan Perez' },
+            subtotal: { type: 'number', example: 560 },
+            descuento: { type: 'number', example: 10 },
             total: { type: 'number', example: 560 },
             detalles: {
               type: 'array',
@@ -277,6 +288,7 @@ const options = {
           properties: {
             clienteId: { type: 'string', example: 'id-cliente' },
             clienteNombre: { type: 'string', example: 'Juan Perez' },
+            descuento: { type: 'number', example: 10 },
             items: {
               type: 'array',
               items: {
@@ -1075,6 +1087,17 @@ const options = {
           responses: {
             200: { description: 'Notificacion marcada como leida' },
             404: { description: 'Notificacion no encontrada' },
+          },
+        },
+      },
+      '/api/notificaciones/leidas': {
+        patch: {
+          tags: ['Notificaciones'],
+          summary: 'Marcar todas las notificaciones del negocio como leidas (HU20)',
+          security: [{ bearerAuth: [] }],
+          responses: {
+            200: { description: 'Notificaciones marcadas como leidas' },
+            401: { description: 'No autenticado' },
           },
         },
       },

@@ -52,6 +52,8 @@ function mapOrdenResumen(orden) {
 
 function mapCotizacion(cotizacion) {
   const numero = `COT-${String(cotizacion.numero).padStart(4, '0')}`;
+  const cliente = cotizacion.orden?.equipo?.cliente;
+  const telefono = cliente?.usuario?.telefonos?.[0]?.numero;
 
   return {
     id: cotizacion.id,
@@ -59,6 +61,14 @@ function mapCotizacion(cotizacion) {
     numeroInterno: cotizacion.numero,
     ordenId: cotizacion.idOrden,
     order: mapOrdenResumen(cotizacion.orden),
+    cliente: cliente
+      ? {
+          id: cliente.idUsuario,
+          razonSocial: cliente.razonSocial,
+          nombre: cliente.razonSocial,
+          telefono: telefono ? telefono.toString() : null,
+        }
+      : null,
     descripcion: cotizacion.descripcion,
     manoObra: Number(cotizacion.manoObra),
     repuestos: Number(cotizacion.repuestos),
@@ -79,9 +89,37 @@ function buildWhatsappUrl(cotizacion) {
 function buildWhatsappMessage(cotizacion) {
   const numero = `COT-${String(cotizacion.numero).padStart(4, '0')}`;
   const cliente = cotizacion.orden?.equipo?.cliente?.razonSocial || 'cliente';
+  const negocio = cotizacion.orden?.negocio?.nombre || 'ServiTech';
   const total = Number(cotizacion.total).toFixed(2);
+  const subtotal = Number(cotizacion.manoObra) + Number(cotizacion.repuestos);
+  const emitida = cotizacion.fechaCreacion ? new Date(cotizacion.fechaCreacion) : new Date();
+  const validaHasta = new Date(emitida);
+  validaHasta.setDate(validaHasta.getDate() + 7);
+  const equipo = cotizacion.orden?.equipo;
+  const equipoTexto = equipo
+    ? `${equipo.tipoEquipo?.nombre || 'Equipo'} ${equipo.modelo?.marca?.nombre || ''} ${equipo.modelo?.nombreModelo || ''}`.trim()
+    : 'Equipo no especificado';
 
-  return `Hola ${cliente}, tu cotizacion ${numero} de ServiTech tiene un total de Bs ${total}.`;
+  return [
+    `*${negocio} - Cotizacion ${numero}*`,
+    `Fecha: ${emitida.toLocaleDateString('es-BO')}`,
+    `Valida hasta: ${validaHasta.toLocaleDateString('es-BO')}`,
+    '',
+    `Cliente: ${cliente}`,
+    `Orden: #${String(cotizacion.orden?.codigo || '').padStart(4, '0')}`,
+    `Equipo: ${equipoTexto}`,
+    `Diagnostico: ${cotizacion.orden?.diagnostico || 'No registrado'}`,
+    '',
+    `Descripcion: ${cotizacion.descripcion}`,
+    `Mano de obra: Bs ${Number(cotizacion.manoObra).toFixed(2)}`,
+    `Repuestos/productos: Bs ${Number(cotizacion.repuestos).toFixed(2)}`,
+    `Subtotal: Bs ${subtotal.toFixed(2)}`,
+    `Descuento: Bs ${Number(cotizacion.descuento).toFixed(2)}`,
+    `Total: Bs ${total}`,
+    cotizacion.observaciones ? `Observaciones: ${cotizacion.observaciones}` : null,
+    '',
+    `Cotizacion valida hasta ${validaHasta.toLocaleDateString('es-BO')}.`,
+  ].filter(Boolean).join('\n');
 }
 
 function buildWhatsappUrlWithText(phone, text) {
@@ -140,6 +178,11 @@ async function createCotizacion(payload, auth) {
   const orden = await ordenRepository.findById(ordenId, idNegocio);
   if (!orden) {
     throw new AppError('Orden de servicio no encontrada', 404);
+  }
+
+  const existingCotizacion = await cotizacionRepository.findByOrderId(orden.id, idNegocio);
+  if (existingCotizacion) {
+    return mapCotizacion(existingCotizacion);
   }
 
   const lastCotizacion = await cotizacionRepository.getLastCotizacion();

@@ -25,6 +25,15 @@ function getAuthBusinessId(auth) {
   return auth?.idNegocio || auth?.negocioId || null;
 }
 
+function requireAuthBusinessId(auth) {
+  const idNegocio = getAuthBusinessId(auth);
+  if (!idNegocio) {
+    throw new AppError('No se pudo identificar el negocio del usuario autenticado', 401);
+  }
+
+  return idNegocio;
+}
+
 function parseBigInt(value, fieldName) {
   if (value === undefined || value === null || value === '') {
     throw new AppError(`El campo ${fieldName} es obligatorio`, 400);
@@ -209,17 +218,18 @@ function mapHistorialCliente(cliente) {
 }
 
 async function listClientes(query = {}, auth) {
+  const idNegocio = requireAuthBusinessId(auth);
   const search = optionalText(query.buscar ?? query.search);
   const rawDocument = optionalText(query.numeroDocumento);
   const documentNumber = rawDocument ? parseBigInt(rawDocument, 'numeroDocumento') : null;
   const searchDocumentNumber = parseSearchDocument(search);
-  const clientes = await clienteRepository.list(search, documentNumber, searchDocumentNumber, getAuthBusinessId(auth));
+  const clientes = await clienteRepository.list(search, documentNumber, searchDocumentNumber, idNegocio);
 
   return clientes.map(mapClient);
 }
 
 async function getCliente(id, auth) {
-  const cliente = await clienteRepository.findById(id, getAuthBusinessId(auth));
+  const cliente = await clienteRepository.findById(id, requireAuthBusinessId(auth));
   if (!cliente) {
     throw new AppError('Cliente no encontrado', 404);
   }
@@ -228,7 +238,7 @@ async function getCliente(id, auth) {
 }
 
 async function getHistorialCliente(id, auth) {
-  const cliente = await clienteRepository.findHistorialById(id, getAuthBusinessId(auth));
+  const cliente = await clienteRepository.findHistorialById(id, requireAuthBusinessId(auth));
   if (!cliente) {
     throw new AppError('Cliente no encontrado', 404);
   }
@@ -244,7 +254,7 @@ async function createCliente(payload, auth) {
   const username = optionalText(payload.username) || `cliente-${numeroDocumento.toString()}`;
   const password = optionalText(payload.password) || randomUUID();
   const { nombres, apellidos } = splitName(razonSocial);
-  const idNegocio = getAuthBusinessId(auth);
+  const idNegocio = requireAuthBusinessId(auth);
 
   const existingClient = await clienteRepository.findByDocumentNumber(numeroDocumento, idNegocio);
   if (existingClient) {

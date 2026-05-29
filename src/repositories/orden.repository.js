@@ -84,6 +84,9 @@ function includeOrden() {
     tecnico: true,
     estado: true,
     prioridad: true,
+    cotizaciones: {
+      orderBy: { numero: 'desc' },
+    },
   };
 }
 

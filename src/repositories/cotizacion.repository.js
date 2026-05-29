@@ -4,6 +4,7 @@ function includeCotizacion() {
   return {
     orden: {
       include: {
+        negocio: true,
         equipo: {
           include: {
             cliente: {
@@ -54,6 +55,17 @@ function findById(id, idNegocio) {
   });
 }
 
+function findByOrderId(idOrden, idNegocio) {
+  return prisma.cotizacion.findFirst({
+    where: {
+      idOrden,
+      ...(idNegocio ? { idNegocio } : {}),
+    },
+    include: includeCotizacion(),
+    orderBy: { numero: 'desc' },
+  });
+}
+
 function getLastCotizacion() {
   return prisma.cotizacion.findFirst({
     orderBy: { numero: 'desc' },
@@ -71,6 +83,7 @@ function create(data) {
 module.exports = {
   list,
   findById,
+  findByOrderId,
   getLastCotizacion,
   create,
 };

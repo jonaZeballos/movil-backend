@@ -67,6 +67,21 @@ async function getOrCreatePrioridad(prioridad) {
 
 function mapOrden(orden) {
   const equipo = orden.equipo;
+  const cotizaciones = Array.isArray(orden.cotizaciones)
+    ? orden.cotizaciones.map((cotizacion) => ({
+        id: cotizacion.id,
+        numero: `COT-${String(cotizacion.numero).padStart(4, '0')}`,
+        numeroInterno: cotizacion.numero,
+        descripcion: cotizacion.descripcion,
+        manoObra: Number(cotizacion.manoObra),
+        repuestos: Number(cotizacion.repuestos),
+        descuento: Number(cotizacion.descuento),
+        total: Number(cotizacion.total),
+        observaciones: cotizacion.observaciones,
+        estado: cotizacion.estado,
+        fechaCreacion: cotizacion.fechaCreacion,
+      }))
+    : [];
 
   return {
     id: orden.id,
@@ -89,6 +104,8 @@ function mapOrden(orden) {
     fechaEntrega: orden.fechaEntrega,
     observacionesTexto: orden.observaciones || null,
     observaciones: orden.observaciones ? orden.observaciones.split('\n').filter(Boolean) : [],
+    cotizaciones,
+    cotizacion: cotizaciones[0] || null,
     idNegocio: orden.idNegocio || null,
   };
 }

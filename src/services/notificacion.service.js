@@ -10,6 +10,26 @@ function getAuthBusinessId(auth) {
   return auth?.idNegocio || auth?.negocioId || null;
 }
 
+function getAuthRole(auth) {
+  return String(auth?.rol || auth?.tipoUsuario || auth?.role || '').toLowerCase();
+}
+
+function isNotificationVisibleForRole(notificacion, role) {
+  if (role === 'admin') return true;
+
+  const tipo = String(notificacion.tipo || '').toLowerCase();
+
+  if (role === 'tecnico') {
+    return ['orden_estado', 'cotizacion', 'sistema', 'system'].includes(tipo);
+  }
+
+  if (role === 'ventas') {
+    return ['venta', 'stock_bajo', 'sistema', 'system'].includes(tipo);
+  }
+
+  return false;
+}
+
 function normalizeText(value, fieldName) {
   if (typeof value !== 'string' || !value.trim()) {
     throw new AppError(`El campo ${fieldName} es obligatorio`, 400);
@@ -47,8 +67,11 @@ async function listNotificaciones(query = {}, auth) {
   const leida = parseBoolean(query.leida);
   const tipo = optionalText(query.tipo);
   const notificaciones = await notificacionRepository.list({ leida, tipo, idNegocio: getAuthBusinessId(auth) });
+  const role = getAuthRole(auth);
 
-  return notificaciones.map(mapNotificacion);
+  return notificaciones
+    .filter((notificacion) => isNotificationVisibleForRole(notificacion, role))
+    .map(mapNotificacion);
 }
 
 async function createNotificacion(payload, auth) {
@@ -82,8 +105,27 @@ async function markNotificacionAsRead(id, auth) {
     throw new AppError('Notificacion no encontrada', 404);
   }
 
+  if (!isNotificationVisibleForRole(existing, getAuthRole(auth))) {
+    throw new AppError('Notificacion no encontrada', 404);
+  }
+
   const notificacion = await notificacionRepository.markAsRead(id);
   return mapNotificacion(notificacion);
+}
+
+async function markAllNotificacionesAsRead(auth) {
+  const idNegocio = getAuthBusinessId(auth);
+  if (!idNegocio) {
+    throw new AppError('No se pudo identificar el negocio del usuario autenticado', 401);
+  }
+
+  const notificaciones = await notificacionRepository.list({ leida: false, idNegocio });
+  const visibles = notificaciones.filter((notificacion) => isNotificationVisibleForRole(notificacion, getAuthRole(auth)));
+  const result = await notificacionRepository.markManyAsRead(visibles.map((notificacion) => notificacion.id));
+
+  return {
+    actualizadas: result.count,
+  };
 }
 
 async function notifySystem(payload) {
@@ -99,6 +141,7 @@ module.exports = {
   listNotificaciones,
   createNotificacion,
   markNotificacionAsRead,
+  markAllNotificacionesAsRead,
   notifySystem,
   mapNotificacion,
 };

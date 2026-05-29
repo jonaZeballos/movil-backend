@@ -39,8 +39,22 @@ async function marcarNotificacionLeida(req, res, next) {
   }
 }
 
+async function marcarTodasNotificacionesLeidas(req, res, next) {
+  try {
+    const resultado = await notificacionService.markAllNotificacionesAsRead(req.auth);
+
+    return res.json({
+      mensaje: 'Notificaciones marcadas como leidas correctamente',
+      data: resultado,
+    });
+  } catch (error) {
+    return next(error);
+  }
+}
+
 module.exports = {
   listarNotificaciones,
   registrarNotificacion,
   marcarNotificacionLeida,
+  marcarTodasNotificacionesLeidas,
 };

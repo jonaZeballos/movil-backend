@@ -22,9 +22,29 @@ function parseQuantity(value) {
   return number;
 }
 
+function parseDiscount(value, subtotal) {
+  if (value === undefined || value === null || value === '') {
+    return 0;
+  }
+
+  const number = Number(String(value).replace(',', '.'));
+  if (!Number.isFinite(number) || number < 0) {
+    throw new AppError('El descuento debe ser un monto mayor o igual a 0', 400);
+  }
+
+  if (number > subtotal) {
+    throw new AppError('El descuento no puede ser mayor al subtotal', 400);
+  }
+
+  return number;
+}
+
 function mapVenta(venta) {
   const reciboCodigo = venta.reciboCodigo;
   const clienteTelefono = venta.cliente?.usuario?.telefonos?.[0]?.numero;
+  const subtotal = venta.detalles.reduce((sum, detalle) => sum + Number(detalle.subtotal), 0);
+  const total = Number(venta.total);
+  const descuento = Math.max(subtotal - total, 0);
 
   return {
     id: venta.id,
@@ -42,7 +62,9 @@ function mapVenta(venta) {
           telefono: clienteTelefono ? clienteTelefono.toString() : null,
         }
       : null,
-    total: Number(venta.total),
+    subtotal,
+    descuento,
+    total,
     fechaCreacion: venta.fechaCreacion,
     detalles: venta.detalles.map((detalle) => ({
       id: detalle.id,
@@ -85,6 +107,8 @@ function mapReciboVenta(venta) {
       telefono: null,
     },
     items: lineas,
+    subtotal: ventaMap.subtotal,
+    descuento: ventaMap.descuento,
     total: ventaMap.total,
     texto,
     venta: ventaMap,
@@ -155,7 +179,7 @@ async function createVenta(payload, auth) {
   }
 
   const detalles = [];
-  let total = 0;
+  let subtotalVenta = 0;
 
   for (const item of items) {
     const productoId = optionalText(item.productoId ?? item.idProducto);
@@ -178,7 +202,7 @@ async function createVenta(payload, auth) {
     }
 
     const subtotal = precioUnitario * cantidad;
-    total += subtotal;
+    subtotalVenta += subtotal;
 
     detalles.push({
       id: randomUUID(),
@@ -188,6 +212,9 @@ async function createVenta(payload, auth) {
       subtotal,
     });
   }
+
+  const descuento = parseDiscount(payload.descuento, subtotalVenta);
+  const total = subtotalVenta - descuento;
 
   const lastVenta = await ventaRepository.getLastVenta();
   const numero = (lastVenta?.numero || 0) + 1;

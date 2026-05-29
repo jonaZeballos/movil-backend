@@ -35,9 +35,32 @@ function markAsRead(id) {
   });
 }
 
+function markAllAsRead(idNegocio) {
+  return prisma.notificacion.updateMany({
+    where: {
+      ...(idNegocio ? { idNegocio } : {}),
+      leida: false,
+    },
+    data: { leida: true },
+  });
+}
+
+function markManyAsRead(ids = []) {
+  if (!ids.length) {
+    return Promise.resolve({ count: 0 });
+  }
+
+  return prisma.notificacion.updateMany({
+    where: { id: { in: ids } },
+    data: { leida: true },
+  });
+}
+
 module.exports = {
   list,
   findById,
   create,
   markAsRead,
+  markAllAsRead,
+  markManyAsRead,
 };
