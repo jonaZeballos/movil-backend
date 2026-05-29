@@ -85,6 +85,7 @@ function mapOrden(orden) {
   const equipo = orden.equipo;
   const cliente = equipo?.cliente;
   const telefono = cliente?.usuario?.telefonos?.[0]?.numero;
+  const email = cliente?.usuario?.email;
   const equipmentName = equipo
     ? `${equipo.tipoEquipo?.nombre || ''} ${equipo.modelo?.marca?.nombre || ''} ${equipo.modelo?.nombreModelo || ''}`.trim()
     : null;
@@ -99,6 +100,7 @@ function mapOrden(orden) {
           razonSocial: cliente.razonSocial,
           nombre: cliente.razonSocial,
           telefono: telefono ? telefono.toString() : null,
+          email: email || null,
         }
       : null,
     equipmentName,

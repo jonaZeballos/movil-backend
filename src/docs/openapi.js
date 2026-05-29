@@ -260,6 +260,7 @@ const options = {
                 id: { type: 'string' },
                 nombre: { type: 'string', example: 'Juan Perez' },
                 telefono: { type: 'string', example: '76543210' },
+                email: { type: 'string', format: 'email', nullable: true, example: 'cliente@mail.com' },
               },
             },
             negocio: {

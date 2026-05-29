@@ -71,6 +71,7 @@ function mapOrdenResumen(orden) {
   const equipo = orden?.equipo;
   const cliente = equipo?.cliente;
   const telefono = cliente?.usuario?.telefonos?.[0]?.numero;
+  const email = cliente?.usuario?.email;
 
   return orden
     ? {
@@ -84,6 +85,7 @@ function mapOrdenResumen(orden) {
               razonSocial: cliente.razonSocial,
               nombre: cliente.razonSocial,
               telefono: telefono ? telefono.toString() : null,
+              email: email || null,
             }
           : null,
         equipo: equipo
@@ -111,6 +113,7 @@ function mapCotizacion(cotizacion) {
   const numero = `COT-${String(cotizacion.numero).padStart(4, '0')}`;
   const cliente = cotizacion.orden?.equipo?.cliente;
   const telefono = cliente?.usuario?.telefonos?.[0]?.numero;
+  const email = cliente?.usuario?.email;
   const validoHasta = getValidoHasta(cotizacion);
   const activa = isCotizacionActiva(cotizacion);
 
@@ -126,6 +129,7 @@ function mapCotizacion(cotizacion) {
           razonSocial: cliente.razonSocial,
           nombre: cliente.razonSocial,
           telefono: telefono ? telefono.toString() : null,
+          email: email || null,
         }
       : null,
     descripcion: cotizacion.descripcion,
