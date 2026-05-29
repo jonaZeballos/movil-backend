@@ -9,8 +9,20 @@ function errorMiddleware(error, req, res, next) {
     });
   }
 
+  if (error.code === 'P2002') {
+    return res.status(409).json({
+      error: 'Ya existe un registro con esos datos en este negocio.',
+    });
+  }
+
+  if (error.code === 'P2022') {
+    return res.status(500).json({
+      error: 'La base de datos no esta sincronizada con el modelo actual. Ejecuta npx prisma db push.',
+    });
+  }
+
   return res.status(error.statusCode || 500).json({
-    error: error.message || 'Error interno del servidor',
+    error: error.statusCode ? error.message : 'Error interno del servidor',
   });
 }
 

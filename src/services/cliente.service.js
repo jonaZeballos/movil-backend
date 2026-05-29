@@ -89,10 +89,28 @@ function mapClient(cliente) {
     apellidos: cliente.usuario?.apellidos || null,
     username: cliente.usuario?.username || null,
     numeroDocumento: cliente.numeroDocumento.toString(),
-    email: cliente.usuario?.email || null,
+    email: cliente.email || cliente.usuario?.email || null,
     telefono: telefono ? telefono.toString() : null,
+    direccion: cliente.direccion || null,
     idNegocio: cliente.idNegocio || cliente.usuario?.idNegocio || null,
   };
+}
+
+function validateDigits(value, fieldName, minLength, maxLength) {
+  const raw = String(value ?? '').trim();
+  if (!raw) {
+    throw new AppError(`El campo ${fieldName} es obligatorio`, 400);
+  }
+
+  if (!/^\d+$/.test(raw)) {
+    throw new AppError(`El campo ${fieldName} debe contener solo numeros`, 400);
+  }
+
+  if (raw.length < minLength || raw.length > maxLength) {
+    throw new AppError(`El campo ${fieldName} tiene una longitud invalida`, 400);
+  }
+
+  return raw;
 }
 
 function mapCotizacion(cotizacion) {
@@ -247,23 +265,50 @@ async function getHistorialCliente(id, auth) {
 }
 
 async function createCliente(payload, auth) {
-  const razonSocial = normalizeText(payload.razonSocial ?? payload.nombre, 'razonSocial');
-  const numeroDocumento = parseBigInt(payload.numeroDocumento, 'numeroDocumento');
-  const numero = parseBigInt(payload.numero ?? payload.telefono, 'numero');
+  const nombresInput = optionalText(payload.nombres);
+  const apellidosInput = optionalText(payload.apellidos);
+  const razonSocial = normalizeText(
+    payload.razonSocial ?? payload.nombre ?? [nombresInput, apellidosInput].filter(Boolean).join(' '),
+    'razonSocial',
+  );
+  if (razonSocial.length < 3) {
+    throw new AppError('Ingrese el nombre completo del cliente', 400);
+  }
+
+  const rawDocumento = validateDigits(payload.numeroDocumento, 'numeroDocumento', 5, 15);
+  const rawNumero = validateDigits(payload.numero ?? payload.telefono, 'numero', 8, 8);
+  const numeroDocumento = parseBigInt(rawDocumento, 'numeroDocumento');
+  const numero = parseBigInt(rawNumero, 'numero');
   const email = optionalText(payload.email ?? payload.correo) || `cliente-${numeroDocumento.toString()}@servitech.local`;
-  const username = optionalText(payload.username) || `cliente-${numeroDocumento.toString()}`;
-  const password = optionalText(payload.password) || randomUUID();
-  const { nombres, apellidos } = splitName(razonSocial);
+  if (!/^\S+@\S+\.\S+$/.test(email)) {
+    throw new AppError('Ingrese un correo valido', 400);
+  }
+  const direccion = optionalText(payload.direccion ?? payload.address ?? payload.domicilio);
+  if (direccion && direccion.length < 5) {
+    throw new AppError('La direccion debe tener al menos 5 caracteres', 400);
+  }
   const idNegocio = requireAuthBusinessId(auth);
+  const clienteUserKey = `${idNegocio.slice(0, 8)}-${numeroDocumento.toString()}`;
+  const username = `cliente-${clienteUserKey}`;
+  const internalEmail = `cliente-${clienteUserKey}@servitech.local`;
+  const password = optionalText(payload.password) || randomUUID();
+  const split = splitName(razonSocial);
+  const nombres = nombresInput || split.nombres;
+  const apellidos = apellidosInput || split.apellidos;
 
   const existingClient = await clienteRepository.findByDocumentNumber(numeroDocumento, idNegocio);
   if (existingClient) {
-    throw new AppError('Ya existe un cliente con ese numeroDocumento', 409);
+    throw new AppError('Ya existe un cliente con ese documento en este negocio.', 409);
   }
 
-  const existingUser = await usuarioRepository.findByUsernameOrEmail(username, email);
+  const existingClientEmail = await clienteRepository.findByEmail(email, idNegocio);
+  if (existingClientEmail) {
+    throw new AppError('Ya existe un cliente con ese correo en este negocio.', 409);
+  }
+
+  const existingUser = await usuarioRepository.findByUsernameOrEmail(username, internalEmail);
   if (existingUser) {
-    throw new AppError('Ya existe un usuario con ese username o email', 409);
+    throw new AppError('Ya existe un cliente con ese documento en este negocio.', 409);
   }
 
   const idRol = await getRoleId('cliente');
@@ -272,7 +317,7 @@ async function createCliente(payload, auth) {
     nombres,
     apellidos,
     username,
-    email,
+    email: internalEmail,
     password: hashPassword(password),
     fechaCreacion: new Date(),
     idRol,
@@ -287,6 +332,8 @@ async function createCliente(payload, auth) {
       create: {
         razonSocial,
         numeroDocumento,
+        email,
+        direccion,
         idNegocio,
       },
     },

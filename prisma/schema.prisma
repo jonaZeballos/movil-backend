@@ -63,9 +63,11 @@ model Usuario {
 }
 
 model Cliente {
-  idUsuario       String @id @map("id_usuario") @db.VarChar(1000)
-  razonSocial     String @map("razon_social") @db.VarChar(100)
-  numeroDocumento BigInt @map("numero_documento") @db.BigInt
+  idUsuario       String  @id @map("id_usuario") @db.VarChar(1000)
+  razonSocial     String  @map("razon_social") @db.VarChar(100)
+  numeroDocumento BigInt  @map("numero_documento") @db.BigInt
+  email           String? @db.VarChar(200)
+  direccion       String? @db.VarChar(300)
 
   usuario   Usuario  @relation(fields: [idUsuario], references: [id], onDelete: Cascade)
   idNegocio String   @map("id_negocio") @db.VarChar(1000)

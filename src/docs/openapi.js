@@ -74,6 +74,7 @@ const options = {
               properties: {
                 razonSocial: { type: 'string', example: 'Cliente Demo SAC' },
                 numeroDocumento: { type: 'string', example: '12345678901' },
+                direccion: { type: 'string', nullable: true, example: 'Tiquipaya Zona Trojes Calle Caracol' },
               },
             },
           ],
@@ -107,6 +108,7 @@ const options = {
               properties: {
                 razonSocial: { type: 'string' },
                 numeroDocumento: { type: 'string' },
+                direccion: { type: 'string', nullable: true },
               },
             },
           ],
@@ -151,6 +153,7 @@ const options = {
             numeroDocumento: { type: 'string', example: '12345678901' },
             email: { type: 'string', nullable: true, example: 'cliente@mail.com' },
             telefono: { type: 'string', nullable: true, example: '70011223' },
+            direccion: { type: 'string', nullable: true, example: 'Tiquipaya Zona Trojes Calle Caracol' },
           },
         },
         OrdenServicio: {
@@ -554,7 +557,7 @@ const options = {
         get: {
           tags: ['Clientes'],
           summary: 'Listar o buscar clientes (HU05)',
-          description: 'Busca clientes por nombres, apellidos, username, email, razon social o numero de documento. Si no se envia criterio, lista clientes.',
+          description: 'Busca clientes por nombres, apellidos, username, email, razon social, direccion o numero de documento. Si no se envia criterio, lista clientes del negocio autenticado.',
           security: [{ bearerAuth: [] }],
           parameters: [
             {
@@ -562,7 +565,7 @@ const options = {
               name: 'buscar',
               schema: { type: 'string' },
               example: 'cliente',
-              description: 'Texto para nombres, apellidos, username, email, razonSocial o numeroDocumento.',
+              description: 'Texto para nombres, apellidos, username, email, razonSocial, direccion o numeroDocumento.',
             },
             {
               in: 'query',
@@ -610,6 +613,7 @@ const options = {
                     numeroDocumento: { type: 'string', example: '1234567' },
                     numero: { type: 'string', example: '70011223' },
                     email: { type: 'string', example: 'juan@mail.com' },
+                    direccion: { type: 'string', nullable: true, example: 'Tiquipaya Zona Trojes Calle Caracol' },
                   },
                 },
               },

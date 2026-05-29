@@ -16,6 +16,25 @@ function findByDocumentNumber(numeroDocumento, idNegocio) {
   });
 }
 
+function findByEmail(email, idNegocio) {
+  return prisma.cliente.findFirst({
+    where: {
+      OR: [
+        { email },
+        { usuario: { email } },
+      ],
+      ...(idNegocio ? { idNegocio } : {}),
+    },
+    include: {
+      usuario: {
+        include: {
+          telefonos: true,
+        },
+      },
+    },
+  });
+}
+
 function buildBusinessFilter(idNegocio) {
   return idNegocio ? { idNegocio } : {};
 }
@@ -108,6 +127,8 @@ function list(search, documentNumber, searchDocumentNumber, idNegocio) {
         { usuario: { apellidos: { contains: search, mode: 'insensitive' } } },
         { usuario: { username: { contains: search, mode: 'insensitive' } } },
         { usuario: { email: { contains: search, mode: 'insensitive' } } },
+        { email: { contains: search, mode: 'insensitive' } },
+        { direccion: { contains: search, mode: 'insensitive' } },
         ...(searchDocumentNumber ? [{ numeroDocumento: searchDocumentNumber }] : []),
       ]
     : [];
@@ -148,6 +169,7 @@ function createClientUser(data) {
 
 module.exports = {
   findByDocumentNumber,
+  findByEmail,
   findById,
   findHistorialById,
   list,
