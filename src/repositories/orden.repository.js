@@ -74,9 +74,18 @@ function updateOrden(id, data) {
 
 function includeOrden() {
   return {
+    negocio: true,
     equipo: {
       include: {
-        cliente: true,
+        cliente: {
+          include: {
+            usuario: {
+              include: {
+                telefonos: true,
+              },
+            },
+          },
+        },
         tipoEquipo: true,
         modelo: { include: { marca: true } },
       },

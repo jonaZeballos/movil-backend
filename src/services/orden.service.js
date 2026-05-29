@@ -83,6 +83,41 @@ function isCotizacionActiva(cotizacion) {
 
 function mapOrden(orden) {
   const equipo = orden.equipo;
+  const cliente = equipo?.cliente;
+  const telefono = cliente?.usuario?.telefonos?.[0]?.numero;
+  const equipmentName = equipo
+    ? `${equipo.tipoEquipo?.nombre || ''} ${equipo.modelo?.marca?.nombre || ''} ${equipo.modelo?.nombreModelo || ''}`.trim()
+    : null;
+  const orderSummary = {
+    id: orden.id,
+    codigo: orden.codigo,
+    code: `#${String(orden.codigo).padStart(4, '0')}`,
+    clientName: cliente?.razonSocial || null,
+    cliente: cliente
+      ? {
+          id: cliente.idUsuario,
+          razonSocial: cliente.razonSocial,
+          nombre: cliente.razonSocial,
+          telefono: telefono ? telefono.toString() : null,
+        }
+      : null,
+    equipmentName,
+    equipo: equipo
+      ? {
+          id: equipo.id,
+          nombre: equipmentName,
+          nroSerie: equipo.nroSerie,
+        }
+      : null,
+    diagnostico: orden.diagnostico,
+    failure: orden.diagnostico,
+    negocio: orden.negocio
+      ? {
+          id: orden.negocio.id,
+          nombre: orden.negocio.nombre,
+        }
+      : null,
+  };
   const cotizaciones = Array.isArray(orden.cotizaciones)
     ? orden.cotizaciones.map((cotizacion) => {
         const validoHasta = getCotizacionValidoHasta(cotizacion);
@@ -105,6 +140,11 @@ function mapOrden(orden) {
           fechaValidez: validoHasta,
           activa,
           vencida: !activa,
+          idNegocio: cotizacion.idNegocio || orden.idNegocio || null,
+          cliente: orderSummary.cliente,
+          negocio: orderSummary.negocio,
+          order: orderSummary,
+          orden: orderSummary,
         };
       })
     : [];
@@ -115,10 +155,11 @@ function mapOrden(orden) {
     code: `#${String(orden.codigo).padStart(4, '0')}`,
     equipoId: orden.idEquipo,
     tecnicoId: orden.idTecnico,
-    clientName: equipo?.cliente?.razonSocial || null,
-    equipmentName: equipo
-      ? `${equipo.tipoEquipo?.nombre || ''} ${equipo.modelo?.marca?.nombre || ''} ${equipo.modelo?.nombreModelo || ''}`.trim()
-      : null,
+    clientName: orderSummary.clientName,
+    cliente: orderSummary.cliente,
+    equipmentName,
+    equipo: orderSummary.equipo,
+    negocio: orderSummary.negocio,
     equipmentSerial: equipo?.nroSerie || null,
     diagnostico: orden.diagnostico,
     failure: orden.diagnostico,

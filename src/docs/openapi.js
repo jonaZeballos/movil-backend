@@ -178,6 +178,15 @@ const options = {
               items: { type: 'string' },
               example: ['Equipo recibido con cargador.'],
             },
+            cotizacion: {
+              allOf: [{ $ref: '#/components/schemas/Cotizacion' }],
+              nullable: true,
+              description: 'Cotizacion mas reciente de la orden, con cliente, negocio, vigencia y telefono cuando exista.',
+            },
+            cotizaciones: {
+              type: 'array',
+              items: { $ref: '#/components/schemas/Cotizacion' },
+            },
           },
         },
         ActualizarEstadoOrdenRequest: {
