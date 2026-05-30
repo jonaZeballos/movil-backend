@@ -22,6 +22,30 @@ function includeCotizacion() {
         },
       },
     },
+    ordenLinks: {
+      include: {
+        orden: {
+          include: {
+            negocio: true,
+            equipo: {
+              include: {
+                cliente: {
+                  include: {
+                    usuario: {
+                      include: {
+                        telefonos: true,
+                      },
+                    },
+                  },
+                },
+                tipoEquipo: true,
+                modelo: { include: { marca: true } },
+              },
+            },
+          },
+        },
+      },
+    },
   };
 }
 
@@ -58,7 +82,10 @@ function findById(id, idNegocio) {
 function findByOrderId(idOrden, idNegocio) {
   return prisma.cotizacion.findFirst({
     where: {
-      idOrden,
+      OR: [
+        { idOrden },
+        { ordenLinks: { some: { idOrden } } },
+      ],
       ...(idNegocio ? { idNegocio } : {}),
     },
     include: includeCotizacion(),
@@ -73,10 +100,29 @@ function getLastCotizacion() {
   });
 }
 
-function create(data) {
-  return prisma.cotizacion.create({
-    data,
-    include: includeCotizacion(),
+function create(data, ordenIds = []) {
+  const linkedOrderIds = Array.from(new Set([data.idOrden, ...ordenIds].filter(Boolean)));
+
+  return prisma.$transaction(async (tx) => {
+    const cotizacion = await tx.cotizacion.create({
+      data,
+    });
+
+    if (linkedOrderIds.length) {
+      await tx.cotizacionOrden.createMany({
+        data: linkedOrderIds.map((idOrden) => ({
+          id: `${cotizacion.id}-${idOrden}`,
+          idCotizacion: cotizacion.id,
+          idOrden,
+        })),
+        skipDuplicates: true,
+      });
+    }
+
+    return tx.cotizacion.findUnique({
+      where: { id: cotizacion.id },
+      include: includeCotizacion(),
+    });
   });
 }
 

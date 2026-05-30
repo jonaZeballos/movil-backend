@@ -247,6 +247,13 @@ const options = {
             id: { type: 'string' },
             numero: { type: 'string', example: 'COT-0001' },
             ordenId: { type: 'string' },
+            ordenes: {
+              type: 'array',
+              description: 'Ordenes incluidas. Puede contener una o varias ordenes del mismo cliente.',
+              items: { $ref: '#/components/schemas/OrdenServicio' },
+            },
+            esAgrupada: { type: 'boolean', example: false },
+            cantidadOrdenes: { type: 'integer', example: 1 },
             descripcion: { type: 'string', example: 'Cambio de fuente y limpieza interna' },
             manoObra: { type: 'number', example: 120 },
             repuestos: { type: 'number', example: 280 },
@@ -281,6 +288,12 @@ const options = {
           required: ['ordenId', 'descripcion', 'manoObra', 'repuestos'],
           properties: {
             ordenId: { type: 'string' },
+            ordenIds: {
+              type: 'array',
+              description: 'Opcional. Use varios IDs para generar una cotizacion agrupada de ordenes del mismo cliente.',
+              items: { type: 'string' },
+              example: ['orden-1', 'orden-2'],
+            },
             descripcion: { type: 'string', example: 'Cambio de fuente y limpieza interna' },
             manoObra: { type: 'number', example: 120 },
             repuestos: { type: 'number', example: 280 },
@@ -714,6 +727,41 @@ const options = {
           },
           responses: {
             201: { description: 'Orden creada' },
+          },
+        },
+      },
+      '/api/ordenes/lote': {
+        post: {
+          tags: ['Ordenes'],
+          summary: 'Crear ordenes de servicio en lote para equipos del mismo cliente',
+          security: [{ bearerAuth: [] }],
+          requestBody: {
+            required: true,
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  required: ['equipoIds', 'diagnostico'],
+                  properties: {
+                    equipoIds: {
+                      type: 'array',
+                      items: { type: 'string' },
+                      example: ['equipo-1', 'equipo-2'],
+                    },
+                    diagnostico: { type: 'string', example: 'Mantenimiento preventivo' },
+                    prioridad: { type: 'string', example: 'Media' },
+                    estado: { type: 'string', example: 'Recibido' },
+                    observaciones: { type: 'string', example: 'Servicio para varios equipos del mismo cliente' },
+                    garantiaDias: { type: 'integer', example: 0 },
+                  },
+                },
+              },
+            },
+          },
+          responses: {
+            201: { description: 'Ordenes creadas' },
+            400: { description: 'Los equipos no pertenecen al mismo cliente' },
+            404: { description: 'Equipo no encontrado' },
           },
         },
       },

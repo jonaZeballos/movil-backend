@@ -18,8 +18,11 @@ function createPrioridad(id, prioridad) {
   return prisma.prioridad.create({ data: { id, prioridad } });
 }
 
-function getLastOrder() {
+function getLastOrder(idNegocio) {
   return prisma.ordenServicio.findFirst({
+    where: {
+      ...(idNegocio ? { idNegocio } : {}),
+    },
     orderBy: { codigo: 'desc' },
     select: { codigo: true },
   });
@@ -29,6 +32,20 @@ function createOrden(data) {
   return prisma.ordenServicio.create({
     data,
     include: includeOrden(),
+  });
+}
+
+function createOrdenes(dataList) {
+  return prisma.$transaction(async (tx) => {
+    await tx.ordenServicio.createMany({ data: dataList });
+
+    return tx.ordenServicio.findMany({
+      where: {
+        id: { in: dataList.map((data) => data.id) },
+      },
+      include: includeOrden(),
+      orderBy: { codigo: 'asc' },
+    });
   });
 }
 
@@ -95,6 +112,43 @@ function includeOrden() {
     prioridad: true,
     cotizaciones: {
       orderBy: { numero: 'desc' },
+      include: includeCotizacionLinks(),
+    },
+    cotizacionLinks: {
+      include: {
+        cotizacion: {
+          include: includeCotizacionLinks(),
+        },
+      },
+    },
+  };
+}
+
+function includeCotizacionLinks() {
+  return {
+    ordenLinks: {
+      include: {
+        orden: {
+          include: {
+            negocio: true,
+            equipo: {
+              include: {
+                cliente: {
+                  include: {
+                    usuario: {
+                      include: {
+                        telefonos: true,
+                      },
+                    },
+                  },
+                },
+                tipoEquipo: true,
+                modelo: { include: { marca: true } },
+              },
+            },
+          },
+        },
+      },
     },
   };
 }
@@ -106,6 +160,7 @@ module.exports = {
   createPrioridad,
   getLastOrder,
   createOrden,
+  createOrdenes,
   list,
   findById,
   updateOrden,

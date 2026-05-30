@@ -85,7 +85,7 @@ function mapOrden(orden) {
   const equipo = orden.equipo;
   const cliente = equipo?.cliente;
   const telefono = cliente?.usuario?.telefonos?.[0]?.numero;
-  const email = cliente?.usuario?.email;
+  const email = cliente?.email || cliente?.usuario?.email;
   const equipmentName = equipo
     ? `${equipo.tipoEquipo?.nombre || ''} ${equipo.modelo?.marca?.nombre || ''} ${equipo.modelo?.nombreModelo || ''}`.trim()
     : null;
@@ -120,10 +120,31 @@ function mapOrden(orden) {
         }
       : null,
   };
-  const cotizaciones = Array.isArray(orden.cotizaciones)
-    ? orden.cotizaciones.map((cotizacion) => {
+  const rawCotizaciones = [
+    ...(Array.isArray(orden.cotizaciones) ? orden.cotizaciones : []),
+    ...(Array.isArray(orden.cotizacionLinks)
+      ? orden.cotizacionLinks.map((link) => link.cotizacion).filter(Boolean)
+      : []),
+  ];
+  const seenCotizaciones = new Set();
+  const cotizacionesUnicas = rawCotizaciones
+    .filter((cotizacion) => {
+      if (!cotizacion?.id || seenCotizaciones.has(cotizacion.id)) return false;
+      seenCotizaciones.add(cotizacion.id);
+      return true;
+    })
+    .sort((a, b) => Number(b.numero || 0) - Number(a.numero || 0));
+
+  const cotizaciones = cotizacionesUnicas.length
+    ? cotizacionesUnicas.map((cotizacion) => {
         const validoHasta = getCotizacionValidoHasta(cotizacion);
         const activa = isCotizacionActiva(cotizacion);
+        const linkedOrders = Array.isArray(cotizacion.ordenLinks)
+          ? cotizacion.ordenLinks.map((link) => link.orden).filter(Boolean)
+          : [];
+        const ordenes = linkedOrders.length
+          ? linkedOrders.map(mapOrdenResumenFromOrden).filter(Boolean)
+          : [orderSummary];
 
         return {
           id: cotizacion.id,
@@ -142,9 +163,16 @@ function mapOrden(orden) {
           fechaValidez: validoHasta,
           activa,
           vencida: !activa,
+          esAgrupada: Array.isArray(orden.cotizacionLinks)
+            ? orden.cotizacionLinks.some((link) => link.idCotizacion === cotizacion.id)
+            : false,
           idNegocio: cotizacion.idNegocio || orden.idNegocio || null,
           cliente: orderSummary.cliente,
           negocio: orderSummary.negocio,
+          ordenes,
+          orders: ordenes,
+          equipos: ordenes.map((item) => item.equipo).filter(Boolean),
+          cantidadOrdenes: ordenes.length || 1,
           order: orderSummary,
           orden: orderSummary,
         };
@@ -176,6 +204,49 @@ function mapOrden(orden) {
     cotizaciones,
     cotizacion: cotizaciones[0] || null,
     idNegocio: orden.idNegocio || null,
+  };
+}
+
+function mapOrdenResumenFromOrden(orden) {
+  if (!orden) return null;
+  const equipo = orden.equipo;
+  const cliente = equipo?.cliente;
+  const telefono = cliente?.usuario?.telefonos?.[0]?.numero;
+  const email = cliente?.email || cliente?.usuario?.email;
+  const equipmentName = equipo
+    ? `${equipo.tipoEquipo?.nombre || ''} ${equipo.modelo?.marca?.nombre || ''} ${equipo.modelo?.nombreModelo || ''}`.trim()
+    : null;
+
+  return {
+    id: orden.id,
+    codigo: orden.codigo,
+    code: `#${String(orden.codigo).padStart(4, '0')}`,
+    clientName: cliente?.razonSocial || null,
+    cliente: cliente
+      ? {
+          id: cliente.idUsuario,
+          razonSocial: cliente.razonSocial,
+          nombre: cliente.razonSocial,
+          telefono: telefono ? telefono.toString() : null,
+          email: email || null,
+        }
+      : null,
+    equipmentName,
+    equipo: equipo
+      ? {
+          id: equipo.id,
+          nombre: equipmentName,
+          nroSerie: equipo.nroSerie,
+        }
+      : null,
+    diagnostico: orden.diagnostico,
+    failure: orden.diagnostico,
+    negocio: orden.negocio
+      ? {
+          id: orden.negocio.id,
+          nombre: orden.negocio.nombre,
+        }
+      : null,
   };
 }
 
@@ -211,7 +282,7 @@ async function createOrden(payload, auth) {
 
   const estado = await getOrCreateEstado(estadoNombre);
   const prioridad = await getOrCreatePrioridad(prioridadNombre);
-  const lastOrder = await ordenRepository.getLastOrder();
+  const lastOrder = await ordenRepository.getLastOrder(idNegocio);
 
   const orden = await ordenRepository.createOrden({
     id: randomUUID(),
@@ -228,6 +299,60 @@ async function createOrden(payload, auth) {
   });
 
   return mapOrden(orden);
+}
+
+async function createOrdenesLote(payload, auth) {
+  const equipoIds = normalizeEquipoIds(payload.equipoIds ?? payload.equiposIds);
+  const diagnostico = normalizeText(payload.diagnostico ?? payload.failure, 'diagnostico');
+  const estadoNombre = optionalText(payload.estado ?? payload.status) || 'Recibido';
+  const prioridadNombre = optionalText(payload.prioridad) || 'Normal';
+  const garantiaDias = parseOptionalNumber(payload.garantiaDias, 0);
+  const observaciones = optionalText(payload.observaciones ?? payload.observacion);
+  const idNegocio = getAuthBusinessId(auth);
+  if (!idNegocio) {
+    throw new AppError('No se pudo identificar el negocio del usuario autenticado', 401);
+  }
+
+  const equipos = [];
+  for (const equipoId of equipoIds) {
+    const equipo = await equipoRepository.findById(equipoId, idNegocio);
+    if (!equipo) {
+      throw new AppError('Uno o mas equipos no existen o no pertenecen a este negocio', 404);
+    }
+    equipos.push(equipo);
+  }
+
+  const clienteIds = new Set(equipos.map((equipo) => equipo.cliente?.idUsuario || equipo.idCliente).filter(Boolean));
+  if (clienteIds.size !== 1) {
+    throw new AppError('Solo se pueden crear ordenes en lote para equipos del mismo cliente', 400);
+  }
+
+  const estado = await getOrCreateEstado(estadoNombre);
+  const prioridad = await getOrCreatePrioridad(prioridadNombre);
+  const lastOrder = await ordenRepository.getLastOrder(idNegocio);
+  const startCode = lastOrder?.codigo || 0;
+
+  try {
+    const ordenes = await ordenRepository.createOrdenes(
+      equipos.map((equipo, index) => ({
+        id: randomUUID(),
+        codigo: startCode + index + 1,
+        fechaRecepcion: new Date(),
+        diagnostico,
+        garantiaDias,
+        observaciones,
+        idEquipo: equipo.id,
+        idTecnico: optionalText(payload.tecnicoId ?? payload.idTecnico),
+        idEstado: estado.id,
+        idPrioridad: prioridad.id,
+        idNegocio,
+      }))
+    );
+
+    return ordenes.map(mapOrden);
+  } catch (error) {
+    throw new AppError('No se pudieron crear las ordenes de servicio. Verifica los equipos seleccionados e intenta nuevamente.', 500);
+  }
 }
 
 async function updateOrden(id, payload, auth) {
@@ -325,7 +450,23 @@ module.exports = {
   listOrdenes,
   getOrden,
   createOrden,
+  createOrdenesLote,
   updateOrden,
   updateEstadoOrden,
   updateObservacionesOrden,
 };
+
+function normalizeEquipoIds(value) {
+  if (!Array.isArray(value)) {
+    throw new AppError('El campo equipoIds debe ser una lista de equipos', 400);
+  }
+
+  const ids = value.map((id) => String(id || '').trim()).filter(Boolean);
+
+  const uniqueIds = Array.from(new Set(ids));
+  if (!uniqueIds.length) {
+    throw new AppError('Seleccione al menos un equipo.', 400);
+  }
+
+  return uniqueIds;
+}

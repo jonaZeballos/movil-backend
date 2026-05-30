@@ -39,6 +39,19 @@ async function crearOrden(req, res, next) {
   }
 }
 
+async function crearOrdenesLote(req, res, next) {
+  try {
+    const ordenes = await ordenService.createOrdenesLote(req.body, req.auth);
+
+    return res.status(201).json({
+      mensaje: `Se crearon ${ordenes.length} ordenes de servicio`,
+      data: ordenes,
+    });
+  } catch (error) {
+    return next(error);
+  }
+}
+
 async function actualizarOrden(req, res, next) {
   try {
     const orden = await ordenService.updateOrden(req.params.id, req.body, req.auth);
@@ -82,6 +95,7 @@ module.exports = {
   listarOrdenes,
   obtenerOrden,
   crearOrden,
+  crearOrdenesLote,
   actualizarOrden,
   actualizarEstadoOrden,
   actualizarObservacionesOrden,

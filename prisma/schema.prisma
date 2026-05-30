@@ -179,6 +179,7 @@ model OrdenServicio {
   prioridad    Prioridad           @relation(fields: [idPrioridad], references: [id])
   negocio      Negocio             @relation(fields: [idNegocio], references: [id])
   cotizaciones Cotizacion[]
+  cotizacionLinks CotizacionOrden[]
 
   @@unique([idNegocio, codigo])
   @@index([idNegocio])
@@ -220,10 +221,24 @@ model Cotizacion {
   orden     OrdenServicio @relation(fields: [idOrden], references: [id])
   idNegocio String        @map("id_negocio") @db.VarChar(1000)
   negocio   Negocio       @relation(fields: [idNegocio], references: [id])
+  ordenLinks CotizacionOrden[]
 
   @@unique([idNegocio, numero])
   @@index([idNegocio])
   @@map("cotizacion")
+}
+
+model CotizacionOrden {
+  id           String @id @map("id_cotizacion_orden") @db.VarChar(1000)
+  idCotizacion String @map("id_cotizacion") @db.VarChar(1000)
+  idOrden      String @map("id_orden_servicio") @db.VarChar(1000)
+
+  cotizacion Cotizacion     @relation(fields: [idCotizacion], references: [id], onDelete: Cascade)
+  orden      OrdenServicio  @relation(fields: [idOrden], references: [id])
+
+  @@unique([idCotizacion, idOrden])
+  @@index([idOrden])
+  @@map("cotizacion_orden")
 }
 
 model Venta {

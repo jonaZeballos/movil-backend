@@ -71,7 +71,7 @@ function mapOrdenResumen(orden) {
   const equipo = orden?.equipo;
   const cliente = equipo?.cliente;
   const telefono = cliente?.usuario?.telefonos?.[0]?.numero;
-  const email = cliente?.usuario?.email;
+  const email = cliente?.email || cliente?.usuario?.email;
 
   return orden
     ? {
@@ -109,13 +109,28 @@ function mapOrdenResumen(orden) {
     : null;
 }
 
+function getCotizacionOrdenes(cotizacion) {
+  const linkedOrders = Array.isArray(cotizacion.ordenLinks)
+    ? cotizacion.ordenLinks.map((link) => link.orden).filter(Boolean)
+    : [];
+  const orders = linkedOrders.length ? linkedOrders : [cotizacion.orden].filter(Boolean);
+  const seen = new Set();
+
+  return orders.filter((orden) => {
+    if (!orden?.id || seen.has(orden.id)) return false;
+    seen.add(orden.id);
+    return true;
+  });
+}
+
 function mapCotizacion(cotizacion) {
   const numero = `COT-${String(cotizacion.numero).padStart(4, '0')}`;
   const cliente = cotizacion.orden?.equipo?.cliente;
   const telefono = cliente?.usuario?.telefonos?.[0]?.numero;
-  const email = cliente?.usuario?.email;
+  const email = cliente?.email || cliente?.usuario?.email;
   const validoHasta = getValidoHasta(cotizacion);
   const activa = isCotizacionActiva(cotizacion);
+  const ordenes = getCotizacionOrdenes(cotizacion).map(mapOrdenResumen).filter(Boolean);
 
   return {
     id: cotizacion.id,
@@ -123,6 +138,11 @@ function mapCotizacion(cotizacion) {
     numeroInterno: cotizacion.numero,
     ordenId: cotizacion.idOrden,
     order: mapOrdenResumen(cotizacion.orden),
+    ordenes,
+    orders: ordenes,
+    equipos: ordenes.map((orden) => orden.equipo).filter(Boolean),
+    esAgrupada: ordenes.length > 1,
+    cantidadOrdenes: ordenes.length || 1,
     cliente: cliente
       ? {
           id: cliente.idUsuario,
@@ -173,9 +193,14 @@ function buildWhatsappMessage(cotizacion) {
   const emitida = cotizacion.fechaCreacion ? new Date(cotizacion.fechaCreacion) : new Date();
   const validaHasta = getValidoHasta(cotizacion);
   const equipo = cotizacion.orden?.equipo;
+  const ordenes = getCotizacionOrdenes(cotizacion);
   const equipoTexto = equipo
     ? `${equipo.tipoEquipo?.nombre || 'Equipo'} ${equipo.modelo?.marca?.nombre || ''} ${equipo.modelo?.nombreModelo || ''}`.trim()
     : 'Equipo no especificado';
+  const ordenesTexto = ordenes.map((orden) => {
+    const resumen = mapOrdenResumen(orden);
+    return `- ${resumen.code} - ${resumen.equipo?.nombre || 'Equipo no especificado'} - ${resumen.diagnostico || 'Sin diagnostico'}`;
+  });
 
   return [
     `*${negocio} - Cotizacion ${numero}*`,
@@ -185,9 +210,11 @@ function buildWhatsappMessage(cotizacion) {
     `Cliente: ${cliente}`,
     `Telefono: ${normalizeWhatsappPhone(telefono) || 'No registrado'}`,
     'Cotizacion realizada por: Usuario no disponible',
-    `Orden: #${String(cotizacion.orden?.codigo || '').padStart(4, '0')}`,
-    `Equipo: ${equipoTexto}`,
-    `Diagnostico: ${cotizacion.orden?.diagnostico || 'No registrado'}`,
+    ordenes.length > 1 ? 'Ordenes incluidas:' : `Orden: #${String(cotizacion.orden?.codigo || '').padStart(4, '0')}`,
+    ...(ordenes.length > 1 ? ordenesTexto : [
+      `Equipo: ${equipoTexto}`,
+      `Diagnostico: ${cotizacion.orden?.diagnostico || 'No registrado'}`,
+    ]),
     '',
     `Descripcion: ${cotizacion.descripcion}`,
     `Mano de obra: Bs ${Number(cotizacion.manoObra).toFixed(2)}`,
@@ -242,7 +269,8 @@ async function getWhatsappCotizacion(id, auth) {
 }
 
 async function createCotizacion(payload, auth) {
-  const ordenId = normalizeText(payload.ordenId ?? payload.idOrden, 'ordenId');
+  const ordenIds = normalizeOrderIds(payload);
+  const ordenId = ordenIds[0];
   const descripcion = normalizeText(payload.descripcion, 'descripcion');
   const manoObra = parseMoney(payload.manoObra, 'manoObra');
   const repuestos = parseMoney(payload.repuestos, 'repuestos');
@@ -254,19 +282,37 @@ async function createCotizacion(payload, auth) {
   }
 
   const idNegocio = getAuthBusinessId(auth);
-  const orden = await ordenRepository.findById(ordenId, idNegocio);
-  if (!orden) {
-    throw new AppError('Orden de servicio no encontrada', 404);
+  const ordenes = [];
+  for (const currentOrdenId of ordenIds) {
+    const orden = await ordenRepository.findById(currentOrdenId, idNegocio);
+    if (!orden) {
+      throw new AppError('Orden de servicio no encontrada', 404);
+    }
+    ordenes.push(orden);
   }
 
-  const existingCotizacion = await cotizacionRepository.findByOrderId(orden.id, idNegocio);
-  if (existingCotizacion && isCotizacionActiva(existingCotizacion)) {
+  validateSameClient(ordenes);
+
+  const activeCotizaciones = [];
+  for (const orden of ordenes) {
+    const existingCotizacion = await cotizacionRepository.findByOrderId(orden.id, idNegocio);
+    if (existingCotizacion && isCotizacionActiva(existingCotizacion)) {
+      activeCotizaciones.push(existingCotizacion);
+    }
+  }
+
+  if (activeCotizaciones.length && ordenes.length === 1) {
+    const existingCotizacion = activeCotizaciones[0];
     return {
       ...mapCotizacion(existingCotizacion),
       yaExistia: true,
       cotizacionActiva: true,
       mensaje: 'Esta orden ya tiene una cotizacion activa',
     };
+  }
+
+  if (activeCotizaciones.length) {
+    throw new AppError('Una o mas ordenes seleccionadas ya tienen una cotizacion activa', 400);
   }
 
   const lastCotizacion = await cotizacionRepository.getLastCotizacion();
@@ -281,9 +327,9 @@ async function createCotizacion(payload, auth) {
     observaciones: optionalText(payload.observaciones),
     estado: optionalText(payload.estado) || 'Pendiente',
     fechaCreacion: new Date(),
-    idOrden: orden.id,
+    idOrden: ordenId,
     idNegocio,
-  });
+  }, ordenIds);
 
   await notificacionService.notifySystem({
     tipo: 'cotizacion',
@@ -296,9 +342,31 @@ async function createCotizacion(payload, auth) {
 
   const estadoCotizado = await ordenRepository.findEstadoByName('Cotizado')
     || await ordenRepository.createEstado(randomUUID(), 'Cotizado');
-  await ordenRepository.updateOrden(orden.id, { idEstado: estadoCotizado.id });
+  for (const orden of ordenes) {
+    await ordenRepository.updateOrden(orden.id, { idEstado: estadoCotizado.id });
+  }
 
   return mapCotizacion(cotizacion);
+}
+
+function normalizeOrderIds(payload) {
+  const rawIds = Array.isArray(payload.ordenIds)
+    ? payload.ordenIds
+    : [payload.ordenId ?? payload.idOrden].filter(Boolean);
+
+  const ordenIds = Array.from(new Set(rawIds.map((id) => String(id || '').trim()).filter(Boolean)));
+  if (!ordenIds.length) {
+    throw new AppError('Debe seleccionar al menos una orden', 400);
+  }
+
+  return ordenIds;
+}
+
+function validateSameClient(ordenes) {
+  const clienteIds = new Set(ordenes.map((orden) => orden.equipo?.cliente?.idUsuario).filter(Boolean));
+  if (clienteIds.size !== 1) {
+    throw new AppError('Solo se pueden agrupar ordenes del mismo cliente', 400);
+  }
 }
 
 module.exports = {
