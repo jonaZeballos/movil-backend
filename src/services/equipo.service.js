@@ -20,6 +20,10 @@ function optionalText(value) {
   return typeof value === 'string' && value.trim() ? value.trim() : null;
 }
 
+function normalizeReason(value, fallback) {
+  return (optionalText(value) || fallback).slice(0, 300);
+}
+
 function getAuthBusinessId(auth) {
   return auth?.idNegocio || auth?.negocioId || null;
 }
@@ -71,6 +75,9 @@ function mapEquipo(equipo) {
     nroSerie: equipo.nroSerie,
     serial: equipo.nroSerie,
     fechaRegistro: equipo.fechaRegistro,
+    activo: equipo.activo !== false,
+    motivoBaja: equipo.motivoBaja || null,
+    fechaBaja: equipo.fechaBaja || null,
     idNegocio: equipo.idNegocio || null,
   };
 }
@@ -107,6 +114,9 @@ async function createEquipo(payload, auth) {
   if (!cliente) {
     throw new AppError('Cliente no encontrado', 404);
   }
+  if (cliente.enListaNegra) {
+    throw new AppError('El cliente esta en lista negra. Requiere revision del administrador.', 403);
+  }
 
   const tipo = await getOrCreateTipo(tipoNombre);
   const marca = await getOrCreateMarca(marcaNombre);
@@ -124,8 +134,40 @@ async function createEquipo(payload, auth) {
   return mapEquipo(equipo);
 }
 
+async function darBajaEquipo(id, payload, auth) {
+  const equipo = await equipoRepository.findById(id, getAuthBusinessId(auth));
+  if (!equipo) {
+    throw new AppError('Equipo no encontrado', 404);
+  }
+
+  const updatedEquipo = await equipoRepository.updateEquipo(id, {
+    activo: false,
+    motivoBaja: normalizeReason(payload?.motivo, 'Dado de baja por administrador'),
+    fechaBaja: new Date(),
+  });
+
+  return mapEquipo(updatedEquipo);
+}
+
+async function restaurarEquipo(id, auth) {
+  const equipo = await equipoRepository.findById(id, getAuthBusinessId(auth));
+  if (!equipo) {
+    throw new AppError('Equipo no encontrado', 404);
+  }
+
+  const updatedEquipo = await equipoRepository.updateEquipo(id, {
+    activo: true,
+    motivoBaja: null,
+    fechaBaja: null,
+  });
+
+  return mapEquipo(updatedEquipo);
+}
+
 module.exports = {
   listEquipos,
   getEquipo,
   createEquipo,
+  darBajaEquipo,
+  restaurarEquipo,
 };

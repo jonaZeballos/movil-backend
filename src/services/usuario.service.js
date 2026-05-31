@@ -19,6 +19,14 @@ function normalizeText(value, fieldName) {
   return normalized;
 }
 
+function optionalReason(value, fallback) {
+  if (typeof value !== 'string' || !value.trim()) {
+    return fallback;
+  }
+
+  return value.trim().slice(0, 300);
+}
+
 function normalizePersonName(value, fieldName) {
   const normalized = normalizeText(value, fieldName).replace(/\s+/g, ' ');
   if (!PERSON_NAME_REGEX.test(normalized)) {
@@ -253,6 +261,9 @@ function mapUsuario(user) {
     username: user.username,
     email: user.email,
     fechaCreacion: user.fechaCreacion,
+    bloqueado: Boolean(user.bloqueado),
+    motivoBloqueo: user.motivoBloqueo || null,
+    fechaBloqueo: user.fechaBloqueo || null,
     rol: user.rol ? user.rol.rol : null,
     role: user.rol ? user.rol.rol : null,
     idNegocio: user.idNegocio,
@@ -267,6 +278,50 @@ async function listarUsuarios(auth) {
 
   const usuarios = await usuarioRepository.listUsers(idNegocio);
   return usuarios.map(mapUsuario);
+}
+
+async function bloquearUsuario(id, payload, auth) {
+  const idNegocio = getAuthBusinessId(auth);
+  if (!idNegocio) {
+    throw new AppError('No se pudo identificar el negocio del usuario autenticado', 401);
+  }
+
+  if (auth?.sub === id) {
+    throw new AppError('No puedes bloquear tu propio usuario', 400);
+  }
+
+  const usuario = await usuarioRepository.findUserById(id, idNegocio);
+  if (!usuario || usuario.cliente) {
+    throw new AppError('Usuario no encontrado', 404);
+  }
+
+  const updatedUser = await usuarioRepository.updateUser(id, {
+    bloqueado: true,
+    motivoBloqueo: optionalReason(payload?.motivo, 'Bloqueado por administrador'),
+    fechaBloqueo: new Date(),
+  });
+
+  return mapUsuario(updatedUser);
+}
+
+async function desbloquearUsuario(id, auth) {
+  const idNegocio = getAuthBusinessId(auth);
+  if (!idNegocio) {
+    throw new AppError('No se pudo identificar el negocio del usuario autenticado', 401);
+  }
+
+  const usuario = await usuarioRepository.findUserById(id, idNegocio);
+  if (!usuario || usuario.cliente) {
+    throw new AppError('Usuario no encontrado', 404);
+  }
+
+  const updatedUser = await usuarioRepository.updateUser(id, {
+    bloqueado: false,
+    motivoBloqueo: null,
+    fechaBloqueo: null,
+  });
+
+  return mapUsuario(updatedUser);
 }
 
 async function registrarUsuarioCliente(payload, auth) {
@@ -348,6 +403,10 @@ async function loginUsuario(payload) {
     throw new AppError('Usuario o password incorrectos', 401);
   }
 
+  if (user.bloqueado) {
+    throw new AppError('Tu usuario esta bloqueado. Contacta al administrador.', 403);
+  }
+
   const tipoUsuario = user.rol ? user.rol.rol : null;
   const usuario = {
     id: user.id,
@@ -383,6 +442,8 @@ module.exports = {
   registrarUsuarioTecnico,
   registrarUsuarioVentas,
   listarUsuarios,
+  bloquearUsuario,
+  desbloquearUsuario,
   registrarUsuarioCliente,
   loginUsuario,
 };

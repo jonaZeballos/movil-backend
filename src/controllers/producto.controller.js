@@ -52,9 +52,51 @@ async function actualizarProducto(req, res, next) {
   }
 }
 
+async function desactivarProducto(req, res, next) {
+  try {
+    const producto = await productoService.desactivarProducto(req.params.id, req.body, req.auth);
+
+    return res.json({
+      mensaje: 'Producto desactivado correctamente',
+      data: producto,
+    });
+  } catch (error) {
+    return next(error);
+  }
+}
+
+async function restaurarProducto(req, res, next) {
+  try {
+    const producto = await productoService.restaurarProducto(req.params.id, req.auth);
+
+    return res.json({
+      mensaje: 'Producto restaurado correctamente',
+      data: producto,
+    });
+  } catch (error) {
+    return next(error);
+  }
+}
+
+async function eliminarProducto(req, res, next) {
+  try {
+    const result = await productoService.eliminarProducto(req.params.id, req.auth);
+
+    return res.json({
+      mensaje: 'Producto eliminado correctamente',
+      data: result,
+    });
+  } catch (error) {
+    return next(error);
+  }
+}
+
 module.exports = {
   listarProductos,
   obtenerProducto,
   registrarProducto,
   actualizarProducto,
+  desactivarProducto,
+  restaurarProducto,
+  eliminarProducto,
 };

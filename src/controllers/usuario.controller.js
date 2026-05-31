@@ -52,6 +52,32 @@ async function listarUsuarios(req, res, next) {
   }
 }
 
+async function bloquearUsuario(req, res, next) {
+  try {
+    const usuario = await usuarioService.bloquearUsuario(req.params.id, req.body, req.auth);
+
+    return res.json({
+      mensaje: 'Usuario bloqueado correctamente',
+      data: usuario,
+    });
+  } catch (error) {
+    return next(error);
+  }
+}
+
+async function desbloquearUsuario(req, res, next) {
+  try {
+    const usuario = await usuarioService.desbloquearUsuario(req.params.id, req.auth);
+
+    return res.json({
+      mensaje: 'Usuario desbloqueado correctamente',
+      data: usuario,
+    });
+  } catch (error) {
+    return next(error);
+  }
+}
+
 async function registrarUsuarioCliente(req, res, next) {
   try {
     const usuario = await usuarioService.registrarUsuarioCliente(req.body, req.auth);
@@ -83,6 +109,8 @@ module.exports = {
   registrarUsuarioTecnico,
   registrarUsuarioVentas,
   listarUsuarios,
+  bloquearUsuario,
+  desbloquearUsuario,
   registrarUsuarioCliente,
   loginUsuario,
 };

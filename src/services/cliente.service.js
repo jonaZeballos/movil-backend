@@ -21,6 +21,15 @@ function optionalText(value) {
   return typeof value === 'string' && value.trim() ? value.trim() : null;
 }
 
+function normalizeReason(value) {
+  const reason = optionalText(value);
+  if (!reason) {
+    throw new AppError('Debe indicar el motivo', 400);
+  }
+
+  return reason.slice(0, 300);
+}
+
 function getAuthBusinessId(auth) {
   return auth?.idNegocio || auth?.negocioId || null;
 }
@@ -92,6 +101,9 @@ function mapClient(cliente) {
     email: cliente.email || cliente.usuario?.email || null,
     telefono: telefono ? telefono.toString() : null,
     direccion: cliente.direccion || null,
+    enListaNegra: Boolean(cliente.enListaNegra),
+    motivoListaNegra: cliente.motivoListaNegra || null,
+    fechaListaNegra: cliente.fechaListaNegra || null,
     idNegocio: cliente.idNegocio || cliente.usuario?.idNegocio || null,
   };
 }
@@ -345,9 +357,43 @@ async function createCliente(payload, auth) {
   });
 }
 
+async function agregarClienteListaNegra(id, payload, auth) {
+  const idNegocio = requireAuthBusinessId(auth);
+  const cliente = await clienteRepository.findById(id, idNegocio);
+  if (!cliente) {
+    throw new AppError('Cliente no encontrado', 404);
+  }
+
+  const updatedCliente = await clienteRepository.updateCliente(id, {
+    enListaNegra: true,
+    motivoListaNegra: normalizeReason(payload?.motivo),
+    fechaListaNegra: new Date(),
+  });
+
+  return mapClient(updatedCliente);
+}
+
+async function quitarClienteListaNegra(id, auth) {
+  const idNegocio = requireAuthBusinessId(auth);
+  const cliente = await clienteRepository.findById(id, idNegocio);
+  if (!cliente) {
+    throw new AppError('Cliente no encontrado', 404);
+  }
+
+  const updatedCliente = await clienteRepository.updateCliente(id, {
+    enListaNegra: false,
+    motivoListaNegra: null,
+    fechaListaNegra: null,
+  });
+
+  return mapClient(updatedCliente);
+}
+
 module.exports = {
   listClientes,
   getCliente,
   getHistorialCliente,
   createCliente,
+  agregarClienteListaNegra,
+  quitarClienteListaNegra,
 };

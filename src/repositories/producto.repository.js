@@ -3,6 +3,7 @@ const prisma = require('../utils/prismaClient');
 function list(search, idNegocio) {
   return prisma.producto.findMany({
     where: {
+      activo: true,
       ...(idNegocio ? { idNegocio } : {}),
       ...(search
         ? {
@@ -34,9 +35,19 @@ function update(id, data) {
   return prisma.producto.update({ where: { id }, data });
 }
 
+function countVentaDetalles(id) {
+  return prisma.ventaDetalle.count({ where: { idProducto: id } });
+}
+
+function remove(id) {
+  return prisma.producto.delete({ where: { id } });
+}
+
 module.exports = {
   list,
   findById,
   create,
   update,
+  countVentaDetalles,
+  remove,
 };

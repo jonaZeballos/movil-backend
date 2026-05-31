@@ -91,6 +91,19 @@ async function actualizarObservacionesOrden(req, res, next) {
   }
 }
 
+async function anularOrden(req, res, next) {
+  try {
+    const orden = await ordenService.anularOrden(req.params.id, req.body, req.auth);
+
+    return res.json({
+      mensaje: 'Orden anulada correctamente',
+      data: orden,
+    });
+  } catch (error) {
+    return next(error);
+  }
+}
+
 module.exports = {
   listarOrdenes,
   obtenerOrden,
@@ -99,4 +112,5 @@ module.exports = {
   actualizarOrden,
   actualizarEstadoOrden,
   actualizarObservacionesOrden,
+  anularOrden,
 };

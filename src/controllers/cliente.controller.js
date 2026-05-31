@@ -52,9 +52,37 @@ async function registrarCliente(req, res, next) {
   }
 }
 
+async function agregarClienteListaNegra(req, res, next) {
+  try {
+    const cliente = await clienteService.agregarClienteListaNegra(req.params.id, req.body, req.auth);
+
+    return res.json({
+      mensaje: 'Cliente agregado a lista negra correctamente',
+      data: cliente,
+    });
+  } catch (error) {
+    return next(error);
+  }
+}
+
+async function quitarClienteListaNegra(req, res, next) {
+  try {
+    const cliente = await clienteService.quitarClienteListaNegra(req.params.id, req.auth);
+
+    return res.json({
+      mensaje: 'Cliente quitado de lista negra correctamente',
+      data: cliente,
+    });
+  } catch (error) {
+    return next(error);
+  }
+}
+
 module.exports = {
   listarClientes,
   obtenerCliente,
   obtenerHistorialCliente,
   registrarCliente,
+  agregarClienteListaNegra,
+  quitarClienteListaNegra,
 };

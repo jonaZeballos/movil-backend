@@ -156,6 +156,20 @@ function list(search, documentNumber, searchDocumentNumber, idNegocio) {
   });
 }
 
+function updateCliente(idUsuario, data) {
+  return prisma.cliente.update({
+    where: { idUsuario },
+    data,
+    include: {
+      usuario: {
+        include: {
+          telefonos: true,
+        },
+      },
+    },
+  });
+}
+
 function createClientUser(data) {
   return prisma.usuario.create({
     data,
@@ -173,5 +187,6 @@ module.exports = {
   findById,
   findHistorialById,
   list,
+  updateCliente,
   createClientUser,
 };

@@ -45,6 +45,9 @@ model Usuario {
   email         String   @db.VarChar(200)
   password      String   @db.VarChar(1024)
   fechaCreacion DateTime @map("fecha_creacion") @db.Date
+  bloqueado     Boolean  @default(false)
+  motivoBloqueo String?  @map("motivo_bloqueo") @db.VarChar(300)
+  fechaBloqueo  DateTime? @map("fecha_bloqueo") @db.Date
 
   idRol String? @map("id_rol") @db.VarChar(1000)
   rol   Rol?    @relation(fields: [idRol], references: [id])
@@ -68,6 +71,9 @@ model Cliente {
   numeroDocumento BigInt  @map("numero_documento") @db.BigInt
   email           String? @db.VarChar(200)
   direccion       String? @db.VarChar(300)
+  enListaNegra    Boolean @default(false) @map("en_lista_negra")
+  motivoListaNegra String? @map("motivo_lista_negra") @db.VarChar(300)
+  fechaListaNegra DateTime? @map("fecha_lista_negra") @db.Date
 
   usuario   Usuario  @relation(fields: [idUsuario], references: [id], onDelete: Cascade)
   idNegocio String   @map("id_negocio") @db.VarChar(1000)
@@ -124,6 +130,9 @@ model Equipo {
   id            String   @id @map("id_equipo") @db.VarChar(1000)
   nroSerie      String   @map("nro_serie") @db.VarChar(200)
   fechaRegistro DateTime @map("fecha_registro") @db.Date
+  activo        Boolean  @default(true)
+  motivoBaja    String?  @map("motivo_baja") @db.VarChar(300)
+  fechaBaja     DateTime? @map("fecha_baja") @db.Date
 
   idCliente    String @map("id_cliente") @db.VarChar(1000)
   idTipoEquipo String @map("id_tipo_equipo") @db.VarChar(1000)
@@ -196,6 +205,9 @@ model Producto {
   stock         Int
   stockMinimo   Int      @default(1) @map("stock_minimo")
   fechaCreacion DateTime @default(now()) @map("fecha_creacion") @db.Date
+  activo        Boolean  @default(true)
+  motivoDesactivacion String? @map("motivo_desactivacion") @db.VarChar(300)
+  fechaDesactivacion DateTime? @map("fecha_desactivacion") @db.Date
 
   idNegocio     String         @map("id_negocio") @db.VarChar(1000)
   negocio       Negocio        @relation(fields: [idNegocio], references: [id])

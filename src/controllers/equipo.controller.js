@@ -39,8 +39,36 @@ async function registrarEquipo(req, res, next) {
   }
 }
 
+async function darBajaEquipo(req, res, next) {
+  try {
+    const equipo = await equipoService.darBajaEquipo(req.params.id, req.body, req.auth);
+
+    return res.json({
+      mensaje: 'Equipo dado de baja correctamente',
+      data: equipo,
+    });
+  } catch (error) {
+    return next(error);
+  }
+}
+
+async function restaurarEquipo(req, res, next) {
+  try {
+    const equipo = await equipoService.restaurarEquipo(req.params.id, req.auth);
+
+    return res.json({
+      mensaje: 'Equipo restaurado correctamente',
+      data: equipo,
+    });
+  } catch (error) {
+    return next(error);
+  }
+}
+
 module.exports = {
   listarEquipos,
   obtenerEquipo,
   registrarEquipo,
+  darBajaEquipo,
+  restaurarEquipo,
 };
