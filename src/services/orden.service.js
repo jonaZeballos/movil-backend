@@ -5,6 +5,13 @@ const ordenRepository = require('../repositories/orden.repository');
 const notificacionService = require('./notificacion.service');
 
 const COTIZACION_VALIDEZ_DIAS = 1;
+const ALLOWED_ORDER_STATUS_UPDATES = new Set([
+  'Recibido',
+  'Cotizado',
+  'Listo',
+  'Entregado',
+  'Sin solucion',
+]);
 
 function normalizeText(value, fieldName) {
   if (typeof value !== 'string') {
@@ -56,6 +63,12 @@ async function getExistingEstado(nombre) {
   }
 
   return existingEstado;
+}
+
+function validateOrderStatusUpdate(nombre) {
+  if (!ALLOWED_ORDER_STATUS_UPDATES.has(nombre)) {
+    throw new AppError('El estado indicado no es valido', 400);
+  }
 }
 
 async function getOrCreatePrioridad(prioridad) {
@@ -368,6 +381,7 @@ async function updateOrden(id, payload, auth) {
   const observaciones = optionalText(payload.observaciones);
 
   if (estadoNombre) {
+    validateOrderStatusUpdate(estadoNombre);
     const estado = await getExistingEstado(estadoNombre);
     data.idEstado = estado.id;
   }
@@ -402,6 +416,7 @@ async function updateOrden(id, payload, auth) {
 
 async function updateEstadoOrden(id, payload, auth) {
   const estadoNombre = normalizeText(payload.estado ?? payload.status, 'estado');
+  validateOrderStatusUpdate(estadoNombre);
   const existingOrden = await ordenRepository.findById(id, getAuthBusinessId(auth));
   if (!existingOrden) {
     throw new AppError('Orden de servicio no encontrada', 404);

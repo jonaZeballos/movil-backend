@@ -4,6 +4,8 @@ const { hashPassword, verifyPassword } = require('../utils/password');
 const { signToken } = require('../utils/token');
 const usuarioRepository = require('../repositories/usuario.repository');
 
+const PERSON_NAME_REGEX = /^[A-Za-zÁÉÍÓÚÜÑáéíóúüñ]+(?:\s+[A-Za-zÁÉÍÓÚÜÑáéíóúüñ]+)*$/;
+
 function normalizeText(value, fieldName) {
   if (typeof value !== 'string') {
     throw new AppError(`El campo ${fieldName} es obligatorio`, 400);
@@ -12,6 +14,15 @@ function normalizeText(value, fieldName) {
   const normalized = value.trim();
   if (!normalized) {
     throw new AppError(`El campo ${fieldName} es obligatorio`, 400);
+  }
+
+  return normalized;
+}
+
+function normalizePersonName(value, fieldName) {
+  const normalized = normalizeText(value, fieldName).replace(/\s+/g, ' ');
+  if (!PERSON_NAME_REGEX.test(normalized)) {
+    throw new AppError(`El campo ${fieldName} solo permite letras y espacios`, 400);
   }
 
   return normalized;
@@ -113,10 +124,10 @@ async function getRoleId(roleName) {
 }
 
 async function registrarUsuarioConRol(payload, roleName) {
-  const fullName = payload.name ? normalizeText(payload.name, 'name') : null;
+  const fullName = payload.name ? normalizePersonName(payload.name, 'name') : null;
   const splitFullName = fullName ? splitName(fullName) : null;
-  const nombres = splitFullName?.nombres || normalizeText(payload.nombres, 'nombres');
-  const apellidos = splitFullName?.apellidos || normalizeText(payload.apellidos, 'apellidos');
+  const nombres = splitFullName?.nombres || normalizePersonName(payload.nombres, 'nombres');
+  const apellidos = splitFullName?.apellidos || normalizePersonName(payload.apellidos, 'apellidos');
   const email = normalizeEmail(payload.email);
   const username = payload.username ? normalizeUsername(payload.username) : normalizeUsername(email.split('@')[0]);
   const password = normalizePassword(payload.password);
@@ -163,10 +174,10 @@ async function registrarUsuarioConRol(payload, roleName) {
 }
 
 async function registrarUsuario(payload) {
-  const fullName = payload.name ? normalizeText(payload.name, 'name') : null;
+  const fullName = payload.name ? normalizePersonName(payload.name, 'name') : null;
   const splitFullName = fullName ? splitName(fullName) : null;
-  const nombres = splitFullName?.nombres || normalizeText(payload.nombres, 'nombres');
-  const apellidos = splitFullName?.apellidos || normalizeText(payload.apellidos, 'apellidos');
+  const nombres = splitFullName?.nombres || normalizePersonName(payload.nombres, 'nombres');
+  const apellidos = splitFullName?.apellidos || normalizePersonName(payload.apellidos, 'apellidos');
   const email = normalizeEmail(payload.email);
   const username = payload.username ? normalizeUsername(payload.username) : normalizeUsername(email.split('@')[0]);
   const password = normalizePassword(payload.password);
@@ -259,8 +270,8 @@ async function listarUsuarios(auth) {
 }
 
 async function registrarUsuarioCliente(payload, auth) {
-  const nombres = normalizeText(payload.nombres, 'nombres');
-  const apellidos = normalizeText(payload.apellidos, 'apellidos');
+  const nombres = normalizePersonName(payload.nombres, 'nombres');
+  const apellidos = normalizePersonName(payload.apellidos, 'apellidos');
   const username = normalizeUsername(payload.username);
   const email = normalizeEmail(payload.email);
   const password = normalizePassword(payload.password);
