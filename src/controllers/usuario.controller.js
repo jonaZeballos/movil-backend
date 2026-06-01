@@ -52,6 +52,45 @@ async function listarUsuarios(req, res, next) {
   }
 }
 
+async function obtenerPerfilActual(req, res, next) {
+  try {
+    const usuario = await usuarioService.getPerfilActual(req.auth);
+
+    return res.json({
+      mensaje: 'Perfil obtenido correctamente',
+      data: usuario,
+    });
+  } catch (error) {
+    return next(error);
+  }
+}
+
+async function actualizarPerfilActual(req, res, next) {
+  try {
+    const usuario = await usuarioService.updatePerfilActual(req.body, req.auth);
+
+    return res.json({
+      mensaje: 'Perfil actualizado correctamente',
+      data: usuario,
+    });
+  } catch (error) {
+    return next(error);
+  }
+}
+
+async function actualizarPasswordActual(req, res, next) {
+  try {
+    const result = await usuarioService.updatePasswordActual(req.body, req.auth);
+
+    return res.json({
+      mensaje: 'Contrasena actualizada correctamente',
+      data: result,
+    });
+  } catch (error) {
+    return next(error);
+  }
+}
+
 async function bloquearUsuario(req, res, next) {
   try {
     const usuario = await usuarioService.bloquearUsuario(req.params.id, req.body, req.auth);
@@ -109,6 +148,9 @@ module.exports = {
   registrarUsuarioTecnico,
   registrarUsuarioVentas,
   listarUsuarios,
+  obtenerPerfilActual,
+  actualizarPerfilActual,
+  actualizarPasswordActual,
   bloquearUsuario,
   desbloquearUsuario,
   registrarUsuarioCliente,

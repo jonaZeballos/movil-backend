@@ -91,6 +91,58 @@ async function eliminarProducto(req, res, next) {
   }
 }
 
+async function listarCategoriasProducto(req, res, next) {
+  try {
+    const categorias = await productoService.listCategoriasProducto(req.query, req.auth);
+
+    return res.json({
+      mensaje: 'Categorias obtenidas correctamente',
+      data: categorias,
+    });
+  } catch (error) {
+    return next(error);
+  }
+}
+
+async function registrarCategoriaProducto(req, res, next) {
+  try {
+    const categoria = await productoService.createCategoriaProducto(req.body, req.auth);
+
+    return res.status(201).json({
+      mensaje: 'Categoria registrada correctamente',
+      data: categoria,
+    });
+  } catch (error) {
+    return next(error);
+  }
+}
+
+async function actualizarCategoriaProducto(req, res, next) {
+  try {
+    const categoria = await productoService.updateCategoriaProducto(req.params.id, req.body, req.auth);
+
+    return res.json({
+      mensaje: 'Categoria actualizada correctamente',
+      data: categoria,
+    });
+  } catch (error) {
+    return next(error);
+  }
+}
+
+async function desactivarCategoriaProducto(req, res, next) {
+  try {
+    const categoria = await productoService.desactivarCategoriaProducto(req.params.id, req.auth);
+
+    return res.json({
+      mensaje: 'Categoria desactivada correctamente',
+      data: categoria,
+    });
+  } catch (error) {
+    return next(error);
+  }
+}
+
 module.exports = {
   listarProductos,
   obtenerProducto,
@@ -99,4 +151,8 @@ module.exports = {
   desactivarProducto,
   restaurarProducto,
   eliminarProducto,
+  listarCategoriasProducto,
+  registrarCategoriaProducto,
+  actualizarCategoriaProducto,
+  desactivarCategoriaProducto,
 };

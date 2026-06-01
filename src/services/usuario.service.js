@@ -79,6 +79,18 @@ function parsePhoneNumber(value) {
   return BigInt(digits);
 }
 
+function parseOptionalPhoneNumber(value) {
+  if (value === undefined) return undefined;
+  if (value === null || value === '') return null;
+
+  const digits = String(value).replace(/\D/g, '');
+  if (!digits) {
+    throw new AppError('El campo telefono debe ser numerico', 400);
+  }
+
+  return BigInt(digits);
+}
+
 function parseDocumentNumber(value) {
   if (value === undefined || value === null || value === '') {
     throw new AppError('El campo numeroDocumento es obligatorio', 400);
@@ -260,6 +272,7 @@ function mapUsuario(user) {
     name: [user.nombres, user.apellidos].filter(Boolean).join(' ').trim(),
     username: user.username,
     email: user.email,
+    telefono: user.telefonos?.[0]?.numero?.toString() || null,
     fechaCreacion: user.fechaCreacion,
     bloqueado: Boolean(user.bloqueado),
     motivoBloqueo: user.motivoBloqueo || null,
@@ -268,6 +281,93 @@ function mapUsuario(user) {
     role: user.rol ? user.rol.rol : null,
     idNegocio: user.idNegocio,
   };
+}
+
+function getAuthUserId(auth) {
+  return auth?.sub || auth?.idUsuario || auth?.id || null;
+}
+
+async function getPerfilActual(auth) {
+  const idNegocio = getAuthBusinessId(auth);
+  const idUsuario = getAuthUserId(auth);
+  if (!idNegocio || !idUsuario) {
+    throw new AppError('No se pudo identificar el usuario autenticado', 401);
+  }
+
+  const usuario = await usuarioRepository.findUserById(idUsuario, idNegocio);
+  if (!usuario || usuario.cliente) {
+    throw new AppError('Usuario no encontrado', 404);
+  }
+
+  return mapUsuario(usuario);
+}
+
+async function updatePerfilActual(payload, auth) {
+  const idNegocio = getAuthBusinessId(auth);
+  const idUsuario = getAuthUserId(auth);
+  if (!idNegocio || !idUsuario) {
+    throw new AppError('No se pudo identificar el usuario autenticado', 401);
+  }
+
+  const existing = await usuarioRepository.findUserById(idUsuario, idNegocio);
+  if (!existing || existing.cliente) {
+    throw new AppError('Usuario no encontrado', 404);
+  }
+
+  const data = {};
+  if (payload.nombres !== undefined) data.nombres = normalizePersonName(payload.nombres, 'nombres');
+  if (payload.apellidos !== undefined) data.apellidos = normalizePersonName(payload.apellidos, 'apellidos');
+  if (payload.email !== undefined) {
+    const email = normalizeEmail(payload.email);
+    if (email !== existing.email) {
+      const duplicate = await usuarioRepository.findByEmail(email);
+      if (duplicate && duplicate.id !== idUsuario) {
+        throw new AppError('Ya existe un usuario con ese email', 409);
+      }
+    }
+    data.email = email;
+  }
+
+  const phone = parseOptionalPhoneNumber(payload.telefono);
+
+  if (Object.keys(data).length) {
+    await usuarioRepository.updateUser(idUsuario, data);
+  }
+
+  if (phone !== undefined) {
+    await usuarioRepository.replaceUserPhone(
+      idUsuario,
+      phone === null ? null : { id: randomUUID(), numero: phone }
+    );
+  }
+
+  return getPerfilActual(auth);
+}
+
+async function updatePasswordActual(payload, auth) {
+  const idNegocio = getAuthBusinessId(auth);
+  const idUsuario = getAuthUserId(auth);
+  if (!idNegocio || !idUsuario) {
+    throw new AppError('No se pudo identificar el usuario autenticado', 401);
+  }
+
+  const currentPassword = normalizeText(payload.currentPassword, 'currentPassword');
+  const nextPassword = normalizePassword(payload.newPassword);
+
+  const existing = await usuarioRepository.findUserWithPasswordById(idUsuario, idNegocio);
+  if (!existing || existing.cliente) {
+    throw new AppError('Usuario no encontrado', 404);
+  }
+
+  if (!verifyPassword(currentPassword, existing.password)) {
+    throw new AppError('La contrasena actual no es correcta', 400);
+  }
+
+  await usuarioRepository.updateUser(idUsuario, {
+    password: hashPassword(nextPassword),
+  });
+
+  return { updated: true };
 }
 
 async function listarUsuarios(auth) {
@@ -442,6 +542,9 @@ module.exports = {
   registrarUsuarioTecnico,
   registrarUsuarioVentas,
   listarUsuarios,
+  getPerfilActual,
+  updatePerfilActual,
+  updatePasswordActual,
   bloquearUsuario,
   desbloquearUsuario,
   registrarUsuarioCliente,

@@ -14,6 +14,9 @@ datasource db {
 model Negocio {
   id            String   @id @map("id_negocio") @db.VarChar(1000)
   nombre        String   @db.VarChar(200)
+  emailContacto String?  @map("email_contacto") @db.VarChar(200)
+  telefono      String?  @db.VarChar(30)
+  direccion     String?  @db.VarChar(300)
   fechaCreacion DateTime @default(now()) @map("fecha_creacion") @db.Date
 
   usuarios       Usuario[]
@@ -21,6 +24,7 @@ model Negocio {
   equipos        Equipo[]
   ordenes        OrdenServicio[]
   productos      Producto[]
+  categoriasProducto CategoriaProducto[]
   cotizaciones   Cotizacion[]
   ventas         Venta[]
   notificaciones Notificacion[]
@@ -58,6 +62,7 @@ model Usuario {
   cliente   Cliente?
   telefonos Telefono[]
   ordenes   OrdenServicio[]
+  productosTecnico Producto[] @relation("ProductoTecnico")
 
   @@unique([username])
   @@unique([email])
@@ -204,17 +209,43 @@ model Producto {
   precio        Decimal  @db.Decimal(10, 2)
   stock         Int
   stockMinimo   Int      @default(1) @map("stock_minimo")
+  tipoInventario String  @default("tienda") @map("tipo_inventario") @db.VarChar(20)
   fechaCreacion DateTime @default(now()) @map("fecha_creacion") @db.Date
   activo        Boolean  @default(true)
   motivoDesactivacion String? @map("motivo_desactivacion") @db.VarChar(300)
   fechaDesactivacion DateTime? @map("fecha_desactivacion") @db.Date
 
   idNegocio     String         @map("id_negocio") @db.VarChar(1000)
+  idCategoria   String?        @map("id_categoria") @db.VarChar(1000)
+  idTecnico     String?        @map("id_tecnico") @db.VarChar(1000)
   negocio       Negocio        @relation(fields: [idNegocio], references: [id])
+  categoria     CategoriaProducto? @relation(fields: [idCategoria], references: [id])
+  tecnico       Usuario?       @relation("ProductoTecnico", fields: [idTecnico], references: [id])
   detallesVenta VentaDetalle[]
 
   @@index([idNegocio])
+  @@index([idCategoria])
+  @@index([idTecnico])
+  @@index([tipoInventario])
   @@map("producto")
+}
+
+model CategoriaProducto {
+  id            String   @id @map("id_categoria") @db.VarChar(1000)
+  nombre        String   @db.VarChar(100)
+  descripcion   String?  @db.VarChar(300)
+  tipoInventario String  @default("tienda") @map("tipo_inventario") @db.VarChar(20)
+  activa        Boolean  @default(true)
+  fechaCreacion DateTime @default(now()) @map("fecha_creacion") @db.Date
+
+  idNegocio String    @map("id_negocio") @db.VarChar(1000)
+  negocio   Negocio   @relation(fields: [idNegocio], references: [id])
+  productos Producto[]
+
+  @@unique([idNegocio, tipoInventario, nombre])
+  @@index([idNegocio])
+  @@index([tipoInventario])
+  @@map("categoria_producto")
 }
 
 model Cotizacion {

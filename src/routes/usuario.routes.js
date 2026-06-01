@@ -5,6 +5,9 @@ const {
 	registrarUsuarioTecnico,
 	registrarUsuarioVentas,
 	listarUsuarios,
+	obtenerPerfilActual,
+	actualizarPerfilActual,
+	actualizarPasswordActual,
 	bloquearUsuario,
 	desbloquearUsuario,
 	registrarUsuarioCliente,
@@ -14,6 +17,9 @@ const { requireAuth, requireAdmin } = require('../middlewares');
 const router = Router();
 
 router.get('/', requireAuth, requireAdmin, listarUsuarios);
+router.get('/me', requireAuth, requireAdmin, obtenerPerfilActual);
+router.patch('/me', requireAuth, requireAdmin, actualizarPerfilActual);
+router.patch('/me/password', requireAuth, requireAdmin, actualizarPasswordActual);
 router.patch('/:id/bloquear', requireAuth, requireAdmin, bloquearUsuario);
 router.patch('/:id/desbloquear', requireAuth, requireAdmin, desbloquearUsuario);
 router.post('/registro', registrarUsuario);

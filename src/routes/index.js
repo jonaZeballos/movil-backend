@@ -48,5 +48,6 @@ router.use('/api/ventas', ventaRoutes);
 router.use('/api/reportes', reporteRoutes);
 router.use('/api/notificaciones', notificacionRoutes);
 router.use('/api/negocio', negocioRoutes);
+router.use('/api/negocios', negocioRoutes);
 
 module.exports = router;

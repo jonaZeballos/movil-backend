@@ -13,6 +13,16 @@ function findByUsernameOrEmail(username, email) {
   });
 }
 
+function findByEmail(email) {
+  return prisma.usuario.findUnique({
+    where: { email },
+    select: {
+      id: true,
+      email: true,
+    },
+  });
+}
+
 function findByUsernameOrEmailForLogin(identifier) {
   return prisma.usuario.findFirst({
     where: {
@@ -177,6 +187,13 @@ function findUserById(id, idNegocio) {
       apellidos: true,
       username: true,
       email: true,
+      telefonos: {
+        select: {
+          id: true,
+          numero: true,
+        },
+        take: 1,
+      },
       fechaCreacion: true,
       bloqueado: true,
       motivoBloqueo: true,
@@ -184,6 +201,21 @@ function findUserById(id, idNegocio) {
       idNegocio: true,
       cliente: { select: { idUsuario: true } },
       rol: { select: { rol: true } },
+    },
+  }).then((usuario) => {
+    if (usuario && idNegocio && usuario.idNegocio !== idNegocio) return null;
+    return usuario;
+  });
+}
+
+function findUserWithPasswordById(id, idNegocio) {
+  return prisma.usuario.findUnique({
+    where: { id },
+    select: {
+      id: true,
+      password: true,
+      idNegocio: true,
+      cliente: { select: { idUsuario: true } },
     },
   }).then((usuario) => {
     if (usuario && idNegocio && usuario.idNegocio !== idNegocio) return null;
@@ -201,12 +233,33 @@ function updateUser(id, data) {
       apellidos: true,
       username: true,
       email: true,
+      telefonos: {
+        select: {
+          id: true,
+          numero: true,
+        },
+        take: 1,
+      },
       fechaCreacion: true,
       bloqueado: true,
       motivoBloqueo: true,
       fechaBloqueo: true,
       idNegocio: true,
       rol: { select: { rol: true } },
+    },
+  });
+}
+
+async function replaceUserPhone(idUsuario, phoneData) {
+  await prisma.telefono.deleteMany({ where: { idUsuario } });
+
+  if (!phoneData) return null;
+
+  return prisma.telefono.create({
+    data: {
+      id: phoneData.id,
+      numero: phoneData.numero,
+      idUsuario,
     },
   });
 }
@@ -231,13 +284,16 @@ function createBusinessWithOwner({ negocio, usuario }) {
 
 module.exports = {
   findByUsernameOrEmail,
+  findByEmail,
   findByUsernameOrEmailForLogin,
   findRoleByName,
   createRole,
   createUserWithPhone,
   listUsers,
   findUserById,
+  findUserWithPasswordById,
   updateUser,
+  replaceUserPhone,
   findClientByDocumentNumber,
   createClientUser,
   createBusinessWithOwner,
