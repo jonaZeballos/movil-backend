@@ -14,6 +14,9 @@ datasource db {
 model Negocio {
   id            String   @id @map("id_negocio") @db.VarChar(1000)
   nombre        String   @db.VarChar(200)
+  emailContacto String?  @map("email_contacto") @db.VarChar(200)
+  telefono      String?  @db.VarChar(30)
+  direccion     String?  @db.VarChar(300)
   fechaCreacion DateTime @default(now()) @map("fecha_creacion") @db.Date
 
   usuarios       Usuario[]

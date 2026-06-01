@@ -9,8 +9,11 @@ function findById(id) {
           id: true,
           nombres: true,
           apellidos: true,
-          username: true,
           email: true,
+          telefonos: {
+            select: { numero: true },
+            take: 1,
+          },
           rol: {
             select: {
               rol: true,
@@ -32,8 +35,11 @@ function update(id, data) {
           id: true,
           nombres: true,
           apellidos: true,
-          username: true,
           email: true,
+          telefonos: {
+            select: { numero: true },
+            take: 1,
+          },
           rol: {
             select: {
               rol: true,

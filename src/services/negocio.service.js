@@ -13,18 +13,37 @@ function normalizeText(value, fieldName) {
   return value.trim();
 }
 
+function optionalText(value) {
+  return typeof value === 'string' && value.trim() ? value.trim() : null;
+}
+
+function normalizeEmail(value) {
+  const email = optionalText(value);
+  if (!email) return null;
+
+  const normalized = email.toLowerCase();
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalized)) {
+    throw new AppError('El email de contacto no es valido', 400);
+  }
+
+  return normalized;
+}
+
 function mapNegocio(negocio) {
   return {
     id: negocio.id,
     nombre: negocio.nombre,
+    emailContacto: negocio.emailContacto || null,
+    telefono: negocio.telefono || null,
+    direccion: negocio.direccion || null,
     fechaCreacion: negocio.fechaCreacion,
     usuarios: negocio.usuarios.map((usuario) => ({
       id: usuario.id,
       nombres: usuario.nombres,
       apellidos: usuario.apellidos,
       name: [usuario.nombres, usuario.apellidos].filter(Boolean).join(' ').trim(),
-      username: usuario.username,
       email: usuario.email,
+      telefono: usuario.telefonos?.[0]?.numero?.toString() || null,
       rol: usuario.rol?.rol || null,
       role: usuario.rol?.rol || null,
     })),
@@ -59,6 +78,15 @@ async function updateNegocioActual(payload, auth) {
   const data = {};
   if (payload.nombre !== undefined) {
     data.nombre = normalizeText(payload.nombre, 'nombre');
+  }
+  if (payload.emailContacto !== undefined) {
+    data.emailContacto = normalizeEmail(payload.emailContacto);
+  }
+  if (payload.telefono !== undefined) {
+    data.telefono = optionalText(payload.telefono);
+  }
+  if (payload.direccion !== undefined) {
+    data.direccion = optionalText(payload.direccion);
   }
 
   if (!Object.keys(data).length) {
