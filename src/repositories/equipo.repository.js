@@ -81,6 +81,18 @@ function findById(id, idNegocio) {
   });
 }
 
+function updateEquipo(id, data) {
+  return prisma.equipo.update({
+    where: { id },
+    data,
+    include: {
+      cliente: { include: { usuario: true } },
+      tipoEquipo: true,
+      modelo: { include: { marca: true } },
+    },
+  });
+}
+
 module.exports = {
   findTipoByName,
   createTipo,
@@ -91,4 +103,5 @@ module.exports = {
   createEquipo,
   list,
   findById,
+  updateEquipo,
 };

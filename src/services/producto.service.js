@@ -14,6 +14,10 @@ function optionalText(value) {
   return typeof value === 'string' && value.trim() ? value.trim() : null;
 }
 
+function normalizeReason(value, fallback) {
+  return (optionalText(value) || fallback).slice(0, 300);
+}
+
 function getAuthBusinessId(auth) {
   return auth?.idNegocio || auth?.negocioId || null;
 }
@@ -51,6 +55,9 @@ function mapProducto(producto) {
     stock: producto.stock,
     stockMinimo: producto.stockMinimo,
     stockBajo: producto.stock <= producto.stockMinimo,
+    activo: producto.activo !== false,
+    motivoDesactivacion: producto.motivoDesactivacion || null,
+    fechaDesactivacion: producto.fechaDesactivacion || null,
     fechaCreacion: producto.fechaCreacion,
     idNegocio: producto.idNegocio || null,
   };
@@ -118,10 +125,58 @@ async function updateProducto(id, payload, auth) {
   return mapProducto(producto);
 }
 
+async function desactivarProducto(id, payload, auth) {
+  const existing = await productoRepository.findById(id, getAuthBusinessId(auth));
+  if (!existing) {
+    throw new AppError('Producto no encontrado', 404);
+  }
+
+  const producto = await productoRepository.update(id, {
+    activo: false,
+    motivoDesactivacion: normalizeReason(payload?.motivo, 'Desactivado por administrador'),
+    fechaDesactivacion: new Date(),
+  });
+
+  return mapProducto(producto);
+}
+
+async function restaurarProducto(id, auth) {
+  const existing = await productoRepository.findById(id, getAuthBusinessId(auth));
+  if (!existing) {
+    throw new AppError('Producto no encontrado', 404);
+  }
+
+  const producto = await productoRepository.update(id, {
+    activo: true,
+    motivoDesactivacion: null,
+    fechaDesactivacion: null,
+  });
+
+  return mapProducto(producto);
+}
+
+async function eliminarProducto(id, auth) {
+  const existing = await productoRepository.findById(id, getAuthBusinessId(auth));
+  if (!existing) {
+    throw new AppError('Producto no encontrado', 404);
+  }
+
+  const usos = await productoRepository.countVentaDetalles(id);
+  if (usos > 0) {
+    throw new AppError('No se puede eliminar un producto con ventas. Desactivalo para ocultarlo.', 409);
+  }
+
+  await productoRepository.remove(id);
+  return { id };
+}
+
 module.exports = {
   listProductos,
   getProducto,
   createProducto,
   updateProducto,
+  desactivarProducto,
+  restaurarProducto,
+  eliminarProducto,
   mapProducto,
 };

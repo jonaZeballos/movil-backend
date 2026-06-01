@@ -11,6 +11,7 @@ const ALLOWED_ORDER_STATUS_UPDATES = new Set([
   'Listo',
   'Entregado',
   'Sin solucion',
+  'Anulado',
 ]);
 
 function normalizeText(value, fieldName) {
@@ -461,6 +462,35 @@ async function updateObservacionesOrden(id, payload, auth) {
   return mapOrden(updatedOrden);
 }
 
+async function anularOrden(id, payload, auth) {
+  const existingOrden = await ordenRepository.findById(id, getAuthBusinessId(auth));
+  if (!existingOrden) {
+    throw new AppError('Orden de servicio no encontrada', 404);
+  }
+
+  const motivo = optionalText(payload?.motivo);
+  if (!motivo) {
+    throw new AppError('Debe indicar el motivo de anulacion', 400);
+  }
+
+  const estado = await getOrCreateEstado('Anulado');
+  const updatedOrden = await ordenRepository.updateOrden(id, {
+    idEstado: estado.id,
+    observaciones: [existingOrden.observaciones, `Anulada: ${motivo.slice(0, 300)}`].filter(Boolean).join('\n'),
+  });
+
+  await notificacionService.notifySystem({
+    tipo: 'orden_anulada',
+    titulo: 'Orden anulada',
+    mensaje: `La orden #${String(updatedOrden.codigo).padStart(4, '0')} fue anulada.`,
+    referenciaId: updatedOrden.id,
+    referenciaTipo: 'orden',
+    idNegocio: updatedOrden.idNegocio,
+  });
+
+  return mapOrden(updatedOrden);
+}
+
 module.exports = {
   listOrdenes,
   getOrden,
@@ -469,6 +499,7 @@ module.exports = {
   updateOrden,
   updateEstadoOrden,
   updateObservacionesOrden,
+  anularOrden,
 };
 
 function normalizeEquipoIds(value) {

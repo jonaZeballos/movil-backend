@@ -1,0 +1,19 @@
+ALTER TABLE "usuario"
+  ADD COLUMN IF NOT EXISTS "bloqueado" BOOLEAN NOT NULL DEFAULT false,
+  ADD COLUMN IF NOT EXISTS "motivo_bloqueo" VARCHAR(300),
+  ADD COLUMN IF NOT EXISTS "fecha_bloqueo" DATE;
+
+ALTER TABLE "cliente"
+  ADD COLUMN IF NOT EXISTS "en_lista_negra" BOOLEAN NOT NULL DEFAULT false,
+  ADD COLUMN IF NOT EXISTS "motivo_lista_negra" VARCHAR(300),
+  ADD COLUMN IF NOT EXISTS "fecha_lista_negra" DATE;
+
+ALTER TABLE "equipo"
+  ADD COLUMN IF NOT EXISTS "activo" BOOLEAN NOT NULL DEFAULT true,
+  ADD COLUMN IF NOT EXISTS "motivo_baja" VARCHAR(300),
+  ADD COLUMN IF NOT EXISTS "fecha_baja" DATE;
+
+ALTER TABLE "producto"
+  ADD COLUMN IF NOT EXISTS "activo" BOOLEAN NOT NULL DEFAULT true,
+  ADD COLUMN IF NOT EXISTS "motivo_desactivacion" VARCHAR(300),
+  ADD COLUMN IF NOT EXISTS "fecha_desactivacion" DATE;

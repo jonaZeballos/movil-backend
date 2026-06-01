@@ -5,6 +5,8 @@ const {
 	registrarUsuarioTecnico,
 	registrarUsuarioVentas,
 	listarUsuarios,
+	bloquearUsuario,
+	desbloquearUsuario,
 	registrarUsuarioCliente,
 } = require('../controllers/usuario.controller');
 const { requireAuth, requireAdmin } = require('../middlewares');
@@ -12,6 +14,8 @@ const { requireAuth, requireAdmin } = require('../middlewares');
 const router = Router();
 
 router.get('/', requireAuth, requireAdmin, listarUsuarios);
+router.patch('/:id/bloquear', requireAuth, requireAdmin, bloquearUsuario);
+router.patch('/:id/desbloquear', requireAuth, requireAdmin, desbloquearUsuario);
 router.post('/registro', registrarUsuario);
 router.post('/registro-tecnico', requireAuth, requireAdmin, registrarUsuarioTecnico);
 router.post('/registro-ventas', requireAuth, requireAdmin, registrarUsuarioVentas);

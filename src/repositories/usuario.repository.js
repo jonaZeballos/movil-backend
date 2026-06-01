@@ -26,6 +26,9 @@ function findByUsernameOrEmailForLogin(identifier) {
       email: true,
       password: true,
       fechaCreacion: true,
+      bloqueado: true,
+      motivoBloqueo: true,
+      fechaBloqueo: true,
       idNegocio: true,
       negocio: {
         select: {
@@ -75,6 +78,9 @@ function createUserWithPhone(data) {
       username: true,
       email: true,
       fechaCreacion: true,
+      bloqueado: true,
+      motivoBloqueo: true,
+      fechaBloqueo: true,
       idNegocio: true,
       negocio: {
         select: {
@@ -104,6 +110,9 @@ function listUsers(idNegocio) {
       username: true,
       email: true,
       fechaCreacion: true,
+      bloqueado: true,
+      motivoBloqueo: true,
+      fechaBloqueo: true,
       idNegocio: true,
       rol: {
         select: {
@@ -140,6 +149,9 @@ function createClientUser(data) {
       username: true,
       email: true,
       fechaCreacion: true,
+      bloqueado: true,
+      motivoBloqueo: true,
+      fechaBloqueo: true,
       idNegocio: true,
       rol: {
         select: {
@@ -152,6 +164,49 @@ function createClientUser(data) {
           numeroDocumento: true,
         },
       },
+    },
+  });
+}
+
+function findUserById(id, idNegocio) {
+  return prisma.usuario.findUnique({
+    where: { id },
+    select: {
+      id: true,
+      nombres: true,
+      apellidos: true,
+      username: true,
+      email: true,
+      fechaCreacion: true,
+      bloqueado: true,
+      motivoBloqueo: true,
+      fechaBloqueo: true,
+      idNegocio: true,
+      cliente: { select: { idUsuario: true } },
+      rol: { select: { rol: true } },
+    },
+  }).then((usuario) => {
+    if (usuario && idNegocio && usuario.idNegocio !== idNegocio) return null;
+    return usuario;
+  });
+}
+
+function updateUser(id, data) {
+  return prisma.usuario.update({
+    where: { id },
+    data,
+    select: {
+      id: true,
+      nombres: true,
+      apellidos: true,
+      username: true,
+      email: true,
+      fechaCreacion: true,
+      bloqueado: true,
+      motivoBloqueo: true,
+      fechaBloqueo: true,
+      idNegocio: true,
+      rol: { select: { rol: true } },
     },
   });
 }
@@ -181,6 +236,8 @@ module.exports = {
   createRole,
   createUserWithPhone,
   listUsers,
+  findUserById,
+  updateUser,
   findClientByDocumentNumber,
   createClientUser,
   createBusinessWithOwner,
