@@ -5,6 +5,12 @@ const ordenRepository = require('../repositories/orden.repository');
 const notificacionService = require('./notificacion.service');
 
 const COTIZACION_VALIDEZ_DIAS = 1;
+const DATE_FORMATTER_BO = new Intl.DateTimeFormat('es-BO', {
+  timeZone: 'America/La_Paz',
+  day: '2-digit',
+  month: '2-digit',
+  year: 'numeric',
+});
 
 function normalizeText(value, fieldName) {
   if (typeof value !== 'string' || !value.trim()) {
@@ -16,6 +22,19 @@ function normalizeText(value, fieldName) {
 
 function optionalText(value) {
   return typeof value === 'string' && value.trim() ? value.trim() : null;
+}
+
+function isInternalServitechEmail(email) {
+  return /@servitech\.local$/i.test(String(email || '').trim());
+}
+
+function getRealClientEmail(cliente) {
+  const email = optionalText(cliente?.email ?? cliente?.correo ?? cliente?.emailReal);
+  if (email && !isInternalServitechEmail(email)) {
+    return email;
+  }
+
+  return null;
 }
 
 function getAuthBusinessId(auth) {
@@ -59,6 +78,36 @@ function getValidoHasta(cotizacion) {
   return fechaBase;
 }
 
+function formatDateBO(value) {
+  const date = value ? new Date(value) : null;
+  if (!date || Number.isNaN(date.getTime())) {
+    return 'Fecha no disponible';
+  }
+
+  return DATE_FORMATTER_BO.format(date);
+}
+
+function getUserDisplayName(user = {}) {
+  const fullName = [user.nombres, user.apellidos].filter(Boolean).join(' ').trim();
+
+  return fullName
+    || user.nombre
+    || user.name
+    || user.username
+    || user.email
+    || 'Usuario no disponible';
+}
+
+function getAuthUser(auth = {}) {
+  return {
+    nombres: auth.nombres,
+    apellidos: auth.apellidos,
+    nombre: auth.nombre,
+    username: auth.username,
+    email: auth.email,
+  };
+}
+
 function isCotizacionActiva(cotizacion) {
   if (!cotizacion?.fechaCreacion) {
     return false;
@@ -71,7 +120,7 @@ function mapOrdenResumen(orden) {
   const equipo = orden?.equipo;
   const cliente = equipo?.cliente;
   const telefono = cliente?.usuario?.telefonos?.[0]?.numero;
-  const email = cliente?.email || cliente?.usuario?.email;
+  const email = getRealClientEmail(cliente);
 
   return orden
     ? {
@@ -127,7 +176,7 @@ function mapCotizacion(cotizacion) {
   const numero = `COT-${String(cotizacion.numero).padStart(4, '0')}`;
   const cliente = cotizacion.orden?.equipo?.cliente;
   const telefono = cliente?.usuario?.telefonos?.[0]?.numero;
-  const email = cliente?.email || cliente?.usuario?.email;
+  const email = getRealClientEmail(cliente);
   const validoHasta = getValidoHasta(cotizacion);
   const activa = isCotizacionActiva(cotizacion);
   const ordenes = getCotizacionOrdenes(cotizacion).map(mapOrdenResumen).filter(Boolean);
@@ -182,7 +231,7 @@ function buildWhatsappUrl(cotizacion) {
   return buildWhatsappUrlWithText(telefono, buildWhatsappMessage(cotizacion));
 }
 
-function buildWhatsappMessage(cotizacion) {
+function buildWhatsappMessage(cotizacion, creator) {
   const numero = `COT-${String(cotizacion.numero).padStart(4, '0')}`;
   const clienteData = cotizacion.orden?.equipo?.cliente;
   const cliente = clienteData?.razonSocial || 'cliente';
@@ -192,6 +241,7 @@ function buildWhatsappMessage(cotizacion) {
   const subtotal = Number(cotizacion.manoObra) + Number(cotizacion.repuestos);
   const emitida = cotizacion.fechaCreacion ? new Date(cotizacion.fechaCreacion) : new Date();
   const validaHasta = getValidoHasta(cotizacion);
+  const creatorName = getUserDisplayName(creator);
   const equipo = cotizacion.orden?.equipo;
   const ordenes = getCotizacionOrdenes(cotizacion);
   const equipoTexto = equipo
@@ -204,12 +254,12 @@ function buildWhatsappMessage(cotizacion) {
 
   return [
     `*${negocio} - Cotizacion ${numero}*`,
-    `Fecha de emision: ${emitida.toLocaleDateString('es-BO')}`,
-    `Fecha de validez: ${validaHasta.toLocaleDateString('es-BO')}`,
+    `Fecha de emision: ${formatDateBO(emitida)}`,
+    `Fecha de validez: ${formatDateBO(validaHasta)}`,
     '',
     `Cliente: ${cliente}`,
     `Telefono: ${normalizeWhatsappPhone(telefono) || 'No registrado'}`,
-    'Cotizacion realizada por: Usuario no disponible',
+    `Cotizacion realizada por: ${creatorName}`,
     ordenes.length > 1 ? 'Ordenes incluidas:' : `Orden: #${String(cotizacion.orden?.codigo || '').padStart(4, '0')}`,
     ...(ordenes.length > 1 ? ordenesTexto : [
       `Equipo: ${equipoTexto}`,
@@ -224,7 +274,7 @@ function buildWhatsappMessage(cotizacion) {
     `Total: Bs ${total}`,
     cotizacion.observaciones ? `Observaciones: ${cotizacion.observaciones}` : null,
     '',
-    `Cotizacion valida hasta ${validaHasta.toLocaleDateString('es-BO')}.`,
+    `Cotizacion valida hasta ${formatDateBO(validaHasta)}.`,
   ].filter(Boolean).join('\n');
 }
 
@@ -258,7 +308,7 @@ async function getWhatsappCotizacion(id, auth) {
   }
 
   const telefono = cotizacion.orden?.equipo?.cliente?.usuario?.telefonos?.[0]?.numero;
-  const mensaje = buildWhatsappMessage(cotizacion);
+  const mensaje = buildWhatsappMessage(cotizacion, getAuthUser(auth));
 
   return {
     tipo: 'cotizacion',

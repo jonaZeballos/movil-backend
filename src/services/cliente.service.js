@@ -21,6 +21,19 @@ function optionalText(value) {
   return typeof value === 'string' && value.trim() ? value.trim() : null;
 }
 
+function isInternalServitechEmail(email) {
+  return /@servitech\.local$/i.test(String(email || '').trim());
+}
+
+function getRealClientEmail(cliente) {
+  const email = optionalText(cliente?.email ?? cliente?.correo ?? cliente?.emailReal);
+  if (email && !isInternalServitechEmail(email)) {
+    return email;
+  }
+
+  return null;
+}
+
 function normalizeReason(value) {
   const reason = optionalText(value);
   if (!reason) {
@@ -89,6 +102,7 @@ function splitName(fullName) {
 
 function mapClient(cliente) {
   const telefono = cliente.usuario?.telefonos?.[0]?.numero;
+  const email = getRealClientEmail(cliente);
 
   return {
     id: cliente.idUsuario,
@@ -98,7 +112,8 @@ function mapClient(cliente) {
     apellidos: cliente.usuario?.apellidos || null,
     username: cliente.usuario?.username || null,
     numeroDocumento: cliente.numeroDocumento.toString(),
-    email: cliente.email || cliente.usuario?.email || null,
+    email,
+    correo: email,
     telefono: telefono ? telefono.toString() : null,
     direccion: cliente.direccion || null,
     enListaNegra: Boolean(cliente.enListaNegra),
@@ -291,8 +306,8 @@ async function createCliente(payload, auth) {
   const rawNumero = validateDigits(payload.numero ?? payload.telefono, 'numero', 8, 8);
   const numeroDocumento = parseBigInt(rawDocumento, 'numeroDocumento');
   const numero = parseBigInt(rawNumero, 'numero');
-  const email = optionalText(payload.email ?? payload.correo) || `cliente-${numeroDocumento.toString()}@servitech.local`;
-  if (!/^\S+@\S+\.\S+$/.test(email)) {
+  const email = optionalText(payload.email ?? payload.correo);
+  if (email && !/^\S+@\S+\.\S+$/.test(email)) {
     throw new AppError('Ingrese un correo valido', 400);
   }
   const direccion = optionalText(payload.direccion ?? payload.address ?? payload.domicilio);
@@ -313,9 +328,11 @@ async function createCliente(payload, auth) {
     throw new AppError('Ya existe un cliente con ese documento en este negocio.', 409);
   }
 
-  const existingClientEmail = await clienteRepository.findByEmail(email, idNegocio);
-  if (existingClientEmail) {
-    throw new AppError('Ya existe un cliente con ese correo en este negocio.', 409);
+  if (email) {
+    const existingClientEmail = await clienteRepository.findByEmail(email, idNegocio);
+    if (existingClientEmail) {
+      throw new AppError('Ya existe un cliente con ese correo en este negocio.', 409);
+    }
   }
 
   const existingUser = await usuarioRepository.findByUsernameOrEmail(username, internalEmail);

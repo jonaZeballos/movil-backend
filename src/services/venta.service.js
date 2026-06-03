@@ -39,9 +39,48 @@ function parseDiscount(value, subtotal) {
   return number;
 }
 
+const PAYMENT_METHOD_LABELS = {
+  efectivo: 'Efectivo',
+  qr: 'QR',
+  tarjeta: 'Tarjeta',
+  transferencia: 'Transferencia',
+};
+
+function normalizePaymentMethod(value) {
+  const rawValue = typeof value === 'object' && value !== null
+    ? value.id || value.label || value.name || value.nombre
+    : value;
+  const text = optionalText(rawValue);
+
+  if (!text) {
+    throw new AppError('Seleccione un método de pago.', 400);
+  }
+
+  const key = text
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase();
+
+  return PAYMENT_METHOD_LABELS[key] || text;
+}
+
+function isInternalServitechEmail(email) {
+  return /@servitech\.local$/i.test(String(email || '').trim());
+}
+
+function getRealClientEmail(cliente) {
+  const email = optionalText(cliente?.email ?? cliente?.correo ?? cliente?.emailReal);
+  if (email && !isInternalServitechEmail(email)) {
+    return email;
+  }
+
+  return null;
+}
+
 function mapVenta(venta) {
   const reciboCodigo = venta.reciboCodigo;
   const clienteTelefono = venta.cliente?.usuario?.telefonos?.[0]?.numero;
+  const clienteEmail = getRealClientEmail(venta.cliente);
   const subtotal = venta.detalles.reduce((sum, detalle) => sum + Number(detalle.subtotal), 0);
   const total = Number(venta.total);
   const descuento = Math.max(subtotal - total, 0);
@@ -58,13 +97,15 @@ function mapVenta(venta) {
           id: venta.cliente.idUsuario,
           razonSocial: venta.cliente.razonSocial,
           numeroDocumento: venta.cliente.numeroDocumento.toString(),
-          email: venta.cliente.usuario?.email || null,
+          email: clienteEmail,
+          correo: clienteEmail,
           telefono: clienteTelefono ? clienteTelefono.toString() : null,
         }
       : null,
     subtotal,
     descuento,
     total,
+    metodoPago: venta.metodoPago || null,
     fechaCreacion: venta.fechaCreacion,
     negocio: venta.negocio
       ? {
@@ -97,6 +138,7 @@ function mapReciboVenta(venta) {
     `Cliente: ${ventaMap.clienteNombre || 'Consumidor final'}`,
     ...lineas.map((linea) => `${linea.cantidad} x ${linea.producto} - Bs ${linea.subtotal.toFixed(2)}`),
     `Total: Bs ${ventaMap.total.toFixed(2)}`,
+    `Metodo de pago: ${ventaMap.metodoPago || 'No registrado'}`,
   ].join('\n');
 
   return {
@@ -117,6 +159,7 @@ function mapReciboVenta(venta) {
     subtotal: ventaMap.subtotal,
     descuento: ventaMap.descuento,
     total: ventaMap.total,
+    metodoPago: ventaMap.metodoPago,
     texto,
     venta: ventaMap,
     realizadoPor: null,
@@ -223,6 +266,7 @@ async function createVenta(payload, auth) {
 
   const descuento = parseDiscount(payload.descuento, subtotalVenta);
   const total = subtotalVenta - descuento;
+  const metodoPago = normalizePaymentMethod(payload.metodoPago ?? payload.paymentMethod);
 
   const lastVenta = await ventaRepository.getLastVenta();
   const numero = (lastVenta?.numero || 0) + 1;
@@ -239,6 +283,7 @@ async function createVenta(payload, auth) {
         total,
         reciboCodigo,
         fechaCreacion: new Date(),
+        metodoPago,
       },
       detalles,
       idNegocio,

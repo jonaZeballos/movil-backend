@@ -258,7 +258,7 @@ model Cotizacion {
   total         Decimal  @db.Decimal(10, 2)
   observaciones String?  @db.VarChar(1024)
   estado        String   @default("Pendiente") @db.VarChar(50)
-  fechaCreacion DateTime @default(now()) @map("fecha_creacion") @db.Date
+  fechaCreacion DateTime @default(now()) @map("fecha_creacion") @db.Timestamp(6)
 
   idOrden   String        @map("id_orden_servicio") @db.VarChar(1000)
   orden     OrdenServicio @relation(fields: [idOrden], references: [id])
@@ -290,7 +290,8 @@ model Venta {
   clienteNombre String?  @map("cliente_nombre") @db.VarChar(200)
   total         Decimal  @db.Decimal(10, 2)
   reciboCodigo  String   @map("recibo_codigo") @db.VarChar(50)
-  fechaCreacion DateTime @default(now()) @map("fecha_creacion") @db.Date
+  fechaCreacion DateTime @default(now()) @map("fecha_creacion") @db.Timestamp(6)
+  metodoPago    String?  @map("metodo_pago") @db.VarChar(50)
 
   idCliente String?        @map("id_cliente") @db.VarChar(1000)
   cliente   Cliente?       @relation(fields: [idCliente], references: [idUsuario])

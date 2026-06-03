@@ -312,6 +312,7 @@ const options = {
             subtotal: { type: 'number', example: 560 },
             descuento: { type: 'number', example: 10 },
             total: { type: 'number', example: 560 },
+            metodoPago: { type: 'string', nullable: true, example: 'Efectivo' },
             detalles: {
               type: 'array',
               items: {
@@ -329,11 +330,16 @@ const options = {
         },
         VentaRequest: {
           type: 'object',
-          required: ['items'],
+          required: ['items', 'metodoPago'],
           properties: {
             clienteId: { type: 'string', example: 'id-cliente' },
             clienteNombre: { type: 'string', example: 'Juan Perez' },
             descuento: { type: 'number', example: 10 },
+            metodoPago: {
+              type: 'string',
+              enum: ['efectivo', 'qr', 'tarjeta', 'transferencia'],
+              example: 'efectivo',
+            },
             items: {
               type: 'array',
               items: {
