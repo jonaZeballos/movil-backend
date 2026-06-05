@@ -169,8 +169,10 @@ const options = {
             equipmentSerial: { type: 'string', nullable: true, example: 'HP-001' },
             diagnostico: { type: 'string', example: 'No enciende' },
             failure: { type: 'string', example: 'No enciende' },
-            estado: { type: 'string', nullable: true, example: 'En diagnostico' },
-            status: { type: 'string', nullable: true, example: 'En diagnostico' },
+            estado: { type: 'string', nullable: true, example: 'en_diagnostico' },
+            status: { type: 'string', nullable: true, example: 'en_diagnostico' },
+            estadoLabel: { type: 'string', nullable: true, example: 'En diagnostico' },
+            statusLabel: { type: 'string', nullable: true, example: 'En diagnostico' },
             prioridad: { type: 'string', nullable: true, example: 'Normal' },
             garantiaDias: { type: 'integer', example: 30 },
             fechaRecepcion: { type: 'string', format: 'date-time' },
@@ -196,7 +198,12 @@ const options = {
           type: 'object',
           required: ['estado'],
           properties: {
-            estado: { type: 'string', example: 'En diagnostico' },
+            estado: {
+              type: 'string',
+              enum: ['recibido', 'en_diagnostico', 'cotizado', 'en_reparacion', 'listo', 'entregado', 'sin_solucion', 'cancelado'],
+              example: 'en_diagnostico',
+              description: 'Tambien acepta labels antiguos como Recibido, En diagnostico, Cotizado, En reparacion, Listo, Entregado, Sin solucion y Cancelado.',
+            },
           },
         },
         ActualizarObservacionesOrdenRequest: {
@@ -818,7 +825,7 @@ const options = {
         patch: {
           tags: ['Ordenes'],
           summary: 'Actualizar estado de orden (HU08)',
-          description: 'Actualiza el estado de una orden existente. El estado debe existir previamente en el catalogo estado_orden_servicio.',
+          description: 'Actualiza el estado de una orden existente. Use valores internos: recibido, en_diagnostico, cotizado, en_reparacion, listo, entregado, sin_solucion o cancelado. Tambien se aceptan labels antiguos por compatibilidad. Para cambiar manualmente a cotizado, la orden debe tener una cotizacion asociada.',
           security: [{ bearerAuth: [] }],
           parameters: [
             { in: 'path', name: 'id', required: true, schema: { type: 'string' } },

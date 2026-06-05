@@ -19,7 +19,7 @@ async function findOrCreate(model, field, value, data = {}) {
 
 async function main() {
   const roles = ['admin', 'tecnico', 'ventas', 'cliente'];
-  const estados = ['Recibido', 'En diagnostico', 'Cotizado', 'En reparacion', 'Listo', 'Entregado', 'Sin solucion'];
+  const estados = ['Recibido', 'En diagnostico', 'Cotizado', 'En reparacion', 'Listo', 'Entregado', 'Sin solucion', 'Cancelado'];
   const prioridades = ['Baja', 'Normal', 'Alta', 'Urgente'];
 
   await Promise.all(roles.map((rol) => findOrCreate('rol', 'rol', rol)));

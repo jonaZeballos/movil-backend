@@ -3,16 +3,9 @@ const AppError = require('../utils/appError');
 const equipoRepository = require('../repositories/equipo.repository');
 const ordenRepository = require('../repositories/orden.repository');
 const notificacionService = require('./notificacion.service');
+const { ORDER_STATES, normalizeOrderState } = require('../utils/orderStates');
 
 const COTIZACION_VALIDEZ_DIAS = 1;
-const ALLOWED_ORDER_STATUS_UPDATES = new Set([
-  'Recibido',
-  'Cotizado',
-  'Listo',
-  'Entregado',
-  'Sin solucion',
-  'Anulado',
-]);
 
 function normalizeText(value, fieldName) {
   if (typeof value !== 'string') {
@@ -49,26 +42,63 @@ function parseOptionalNumber(value, defaultValue) {
 }
 
 async function getOrCreateEstado(nombre) {
-  const existingEstado = await ordenRepository.findEstadoByName(nombre);
+  const normalizedState = getValidOrderState(nombre);
+  const existingEstado = await findEstadoForState(normalizedState);
   if (existingEstado) {
     return existingEstado;
   }
 
-  return ordenRepository.createEstado(randomUUID(), nombre);
+  return ordenRepository.createEstado(randomUUID(), normalizedState.label);
 }
 
 async function getExistingEstado(nombre) {
-  const existingEstado = await ordenRepository.findEstadoByName(nombre);
+  const normalizedState = getValidOrderState(nombre);
+  const existingEstado = await findEstadoForState(normalizedState);
   if (!existingEstado) {
-    throw new AppError('El estado indicado no es valido', 400);
+    return ordenRepository.createEstado(randomUUID(), normalizedState.label);
   }
 
   return existingEstado;
 }
 
-function validateOrderStatusUpdate(nombre) {
-  if (!ALLOWED_ORDER_STATUS_UPDATES.has(nombre)) {
+function getValidOrderState(nombre) {
+  const normalizedState = normalizeOrderState(nombre);
+  if (!normalizedState) {
     throw new AppError('El estado indicado no es valido', 400);
+  }
+
+  return normalizedState;
+}
+
+async function findEstadoForState(state) {
+  for (const alias of state.aliases) {
+    const existing = await ordenRepository.findEstadoByName(alias);
+    if (existing) return existing;
+  }
+
+  return null;
+}
+
+function getOrderStateValue(nombre) {
+  return normalizeOrderState(nombre)?.value || null;
+}
+
+function getOrderStateLabel(nombre) {
+  return normalizeOrderState(nombre)?.label || nombre || null;
+}
+
+function hasAssociatedQuotation(orden) {
+  return (
+    (Array.isArray(orden?.cotizaciones) && orden.cotizaciones.length > 0)
+    || (Array.isArray(orden?.cotizacionLinks) && orden.cotizacionLinks.length > 0)
+  );
+}
+
+function assertCanMoveToQuoted(orden, nextState) {
+  if (nextState.value !== 'cotizado') return;
+
+  if (!hasAssociatedQuotation(orden)) {
+    throw new AppError('Esta orden todavia no tiene una cotizacion. Genere una cotizacion antes de cambiarla a Cotizado.', 400);
   }
 }
 
@@ -207,8 +237,10 @@ function mapOrden(orden) {
     equipmentSerial: equipo?.nroSerie || null,
     diagnostico: orden.diagnostico,
     failure: orden.diagnostico,
-    estado: orden.estado?.nombre || null,
-    status: orden.estado?.nombre || null,
+    estado: getOrderStateValue(orden.estado?.nombre),
+    status: getOrderStateValue(orden.estado?.nombre),
+    estadoLabel: getOrderStateLabel(orden.estado?.nombre),
+    statusLabel: getOrderStateLabel(orden.estado?.nombre),
     prioridad: orden.prioridad?.prioridad || null,
     garantiaDias: orden.garantiaDias,
     fechaRecepcion: orden.fechaRecepcion,
@@ -382,8 +414,8 @@ async function updateOrden(id, payload, auth) {
   const observaciones = optionalText(payload.observaciones);
 
   if (estadoNombre) {
-    validateOrderStatusUpdate(estadoNombre);
     const estado = await getExistingEstado(estadoNombre);
+    assertCanMoveToQuoted(existingOrden, getValidOrderState(estadoNombre));
     data.idEstado = estado.id;
   }
 
@@ -417,12 +449,13 @@ async function updateOrden(id, payload, auth) {
 
 async function updateEstadoOrden(id, payload, auth) {
   const estadoNombre = normalizeText(payload.estado ?? payload.status, 'estado');
-  validateOrderStatusUpdate(estadoNombre);
+  const nextState = getValidOrderState(estadoNombre);
   const existingOrden = await ordenRepository.findById(id, getAuthBusinessId(auth));
   if (!existingOrden) {
     throw new AppError('Orden de servicio no encontrada', 404);
   }
 
+  assertCanMoveToQuoted(existingOrden, nextState);
   const estado = await getExistingEstado(estadoNombre);
   const updatedOrden = await ordenRepository.updateOrden(id, { idEstado: estado.id });
 
@@ -473,16 +506,16 @@ async function anularOrden(id, payload, auth) {
     throw new AppError('Debe indicar el motivo de anulacion', 400);
   }
 
-  const estado = await getOrCreateEstado('Anulado');
+  const estado = await getOrCreateEstado('cancelado');
   const updatedOrden = await ordenRepository.updateOrden(id, {
     idEstado: estado.id,
-    observaciones: [existingOrden.observaciones, `Anulada: ${motivo.slice(0, 300)}`].filter(Boolean).join('\n'),
+    observaciones: [existingOrden.observaciones, `Cancelada: ${motivo.slice(0, 300)}`].filter(Boolean).join('\n'),
   });
 
   await notificacionService.notifySystem({
-    tipo: 'orden_anulada',
-    titulo: 'Orden anulada',
-    mensaje: `La orden #${String(updatedOrden.codigo).padStart(4, '0')} fue anulada.`,
+    tipo: 'orden_estado',
+    titulo: 'Orden cancelada',
+    mensaje: `La orden #${String(updatedOrden.codigo).padStart(4, '0')} fue cancelada.`,
     referenciaId: updatedOrden.id,
     referenciaTipo: 'orden',
     idNegocio: updatedOrden.idNegocio,
@@ -492,6 +525,7 @@ async function anularOrden(id, payload, auth) {
 }
 
 module.exports = {
+  ORDER_STATES,
   listOrdenes,
   getOrden,
   createOrden,

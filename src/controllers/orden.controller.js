@@ -96,7 +96,7 @@ async function anularOrden(req, res, next) {
     const orden = await ordenService.anularOrden(req.params.id, req.body, req.auth);
 
     return res.json({
-      mensaje: 'Orden anulada correctamente',
+      mensaje: 'Orden cancelada correctamente',
       data: orden,
     });
   } catch (error) {
