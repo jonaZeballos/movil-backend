@@ -42,8 +42,6 @@ function parseDiscount(value, subtotal) {
 const PAYMENT_METHOD_LABELS = {
   efectivo: 'Efectivo',
   qr: 'QR',
-  tarjeta: 'Tarjeta',
-  transferencia: 'Transferencia',
 };
 
 function normalizePaymentMethod(value) {
@@ -61,7 +59,11 @@ function normalizePaymentMethod(value) {
     .replace(/[\u0300-\u036f]/g, '')
     .toLowerCase();
 
-  return PAYMENT_METHOD_LABELS[key] || text;
+  if (!PAYMENT_METHOD_LABELS[key]) {
+    throw new AppError('Metodo de pago no permitido', 400);
+  }
+
+  return PAYMENT_METHOD_LABELS[key];
 }
 
 function isInternalServitechEmail(email) {
@@ -111,6 +113,7 @@ function mapVenta(venta) {
       ? {
           id: venta.negocio.id,
           nombre: venta.negocio.nombre,
+          qrPagoUrl: venta.negocio.qrPagoUrl || null,
         }
       : null,
     realizadoPor: null,
@@ -146,6 +149,7 @@ function mapReciboVenta(venta) {
     fecha: ventaMap.fechaCreacion,
     negocio: {
       nombre: venta.negocio?.nombre || 'ServiTech',
+      qrPagoUrl: venta.negocio?.qrPagoUrl || null,
       descripcion: 'Servicio tecnico de computadoras y venta de equipos, repuestos y accesorios',
     },
     cliente: ventaMap.cliente || {

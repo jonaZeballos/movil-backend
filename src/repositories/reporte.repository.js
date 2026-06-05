@@ -1,4 +1,4 @@
-const prisma = require('../utils/prismaClient');
+﻿const prisma = require('../utils/prismaClient');
 
 function buildDateFilter(field, desde, hasta) {
   if (!desde && !hasta) {
@@ -9,6 +9,16 @@ function buildDateFilter(field, desde, hasta) {
     [field]: {
       ...(desde ? { gte: desde } : {}),
       ...(hasta ? { lte: hasta } : {}),
+    },
+  };
+}
+
+function includeClienteCompleto() {
+  return {
+    usuario: {
+      include: {
+        telefonos: true,
+      },
     },
   };
 }
@@ -30,9 +40,12 @@ function listOrdenes(desde, hasta, idNegocio) {
     include: {
       estado: true,
       prioridad: true,
+      tecnico: true,
       equipo: {
         include: {
-          cliente: true,
+          cliente: {
+            include: includeClienteCompleto(),
+          },
           tipoEquipo: true,
           modelo: {
             include: {
@@ -56,7 +69,9 @@ function listVentas(desde, hasta, idNegocio) {
       ...(idNegocio ? { idNegocio } : {}),
     },
     include: {
-      cliente: true,
+      cliente: {
+        include: includeClienteCompleto(),
+      },
       detalles: {
         include: {
           producto: true,

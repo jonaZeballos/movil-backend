@@ -29,6 +29,24 @@ function normalizeEmail(value) {
   return normalized;
 }
 
+function normalizeQrPagoUrl(value) {
+  const qrPagoUrl = optionalText(value);
+  if (!qrPagoUrl) return null;
+
+  const isImageDataUri = /^data:image\/(png|jpe?g|webp);base64,/i.test(qrPagoUrl);
+  const isRemoteImage = /^https?:\/\/.+/i.test(qrPagoUrl);
+
+  if (!isImageDataUri && !isRemoteImage) {
+    throw new AppError('El QR de pago debe ser una URL de imagen o una imagen en base64', 400);
+  }
+
+  if (qrPagoUrl.length > 750000) {
+    throw new AppError('La imagen QR es demasiado grande', 400);
+  }
+
+  return qrPagoUrl;
+}
+
 function mapNegocio(negocio) {
   return {
     id: negocio.id,
@@ -36,6 +54,7 @@ function mapNegocio(negocio) {
     emailContacto: negocio.emailContacto || null,
     telefono: negocio.telefono || null,
     direccion: negocio.direccion || null,
+    qrPagoUrl: negocio.qrPagoUrl || null,
     fechaCreacion: negocio.fechaCreacion,
     usuarios: negocio.usuarios.map((usuario) => ({
       id: usuario.id,
@@ -87,6 +106,9 @@ async function updateNegocioActual(payload, auth) {
   }
   if (payload.direccion !== undefined) {
     data.direccion = optionalText(payload.direccion);
+  }
+  if (payload.qrPagoUrl !== undefined) {
+    data.qrPagoUrl = normalizeQrPagoUrl(payload.qrPagoUrl);
   }
 
   if (!Object.keys(data).length) {

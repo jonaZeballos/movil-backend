@@ -1,4 +1,4 @@
-const AppError = require('../utils/appError');
+﻿const AppError = require('../utils/appError');
 const reporteRepository = require('../repositories/reporte.repository');
 
 function parseDate(value, fieldName, endOfDay = false) {
@@ -44,23 +44,115 @@ function toArrayCounter(counter) {
     .sort((a, b) => b.total - a.total || a.nombre.localeCompare(b.nombre));
 }
 
+function toNumber(value) {
+  return Number(value || 0);
+}
+
+function toText(value) {
+  return value === undefined || value === null ? null : String(value);
+}
+
+function mapCliente(cliente, fallbackName = null) {
+  if (!cliente) {
+    return fallbackName
+      ? {
+          id: null,
+          nombre: fallbackName,
+          razonSocial: fallbackName,
+          numeroDocumento: null,
+          telefono: null,
+          email: null,
+          correo: null,
+        }
+      : null;
+  }
+
+  const email = cliente.email || cliente.correo || cliente.usuario?.email || null;
+  const telefono = cliente.usuario?.telefonos?.[0]?.numero;
+  const nombre = cliente.razonSocial || [cliente.nombres, cliente.apellidos].filter(Boolean).join(' ').trim() || fallbackName;
+
+  return {
+    id: cliente.idUsuario || cliente.id || null,
+    nombre,
+    razonSocial: cliente.razonSocial || nombre,
+    nombres: cliente.nombres || null,
+    apellidos: cliente.apellidos || null,
+    numeroDocumento: toText(cliente.numeroDocumento),
+    telefono: telefono ? telefono.toString() : cliente.telefono || null,
+    email,
+    correo: email,
+  };
+}
+
+function mapEquipo(equipo) {
+  if (!equipo) return null;
+
+  const marca = equipo.modelo?.marca?.nombre || null;
+  const modelo = equipo.modelo?.nombreModelo || equipo.modelo?.nombreComercial || null;
+  const tipo = equipo.tipoEquipo?.nombre || null;
+  const nombre = [tipo, marca, modelo].filter(Boolean).join(' ').trim();
+
+  return {
+    id: equipo.id,
+    nombre: nombre || 'Equipo',
+    tipo,
+    marca,
+    modelo,
+    nroSerie: equipo.nroSerie || null,
+    serial: equipo.nroSerie || null,
+    fechaRegistro: equipo.fechaRegistro || null,
+  };
+}
+
+function mapCotizacion(cotizacion) {
+  return {
+    id: cotizacion.id,
+    numero: cotizacion.numero,
+    codigo: `COT-${String(cotizacion.numero).padStart(4, '0')}`,
+    descripcion: cotizacion.descripcion || null,
+    manoObra: toNumber(cotizacion.manoObra),
+    repuestos: toNumber(cotizacion.repuestos),
+    descuento: toNumber(cotizacion.descuento),
+    total: toNumber(cotizacion.total),
+    estado: cotizacion.estado || null,
+    observaciones: cotizacion.observaciones || null,
+    fechaCreacion: cotizacion.fechaCreacion,
+  };
+}
+
 function mapOrdenResumen(orden) {
   const equipo = orden.equipo;
+  const cliente = mapCliente(equipo?.cliente);
+  const cotizaciones = orden.cotizaciones.map(mapCotizacion);
 
   return {
     id: orden.id,
     codigo: orden.codigo,
     code: `#${String(orden.codigo).padStart(4, '0')}`,
-    cliente: equipo?.cliente?.razonSocial || null,
-    equipo: equipo
-      ? `${equipo.tipoEquipo?.nombre || ''} ${equipo.modelo?.marca?.nombre || ''} ${equipo.modelo?.nombreModelo || ''}`.trim()
-      : null,
+    cliente,
+    clienteNombre: cliente?.razonSocial || cliente?.nombre || 'Cliente no registrado',
+    equipo: mapEquipo(equipo),
+    equipoNombre: mapEquipo(equipo)?.nombre || null,
     diagnostico: orden.diagnostico,
+    descripcion: orden.observaciones || orden.diagnostico,
+    observaciones: orden.observaciones || null,
     estado: orden.estado?.nombre || null,
+    status: orden.estado?.nombre || null,
     prioridad: orden.prioridad?.prioridad || null,
     fechaRecepcion: orden.fechaRecepcion,
     fechaEntrega: orden.fechaEntrega,
-    totalCotizado: orden.cotizaciones.reduce((sum, cotizacion) => sum + Number(cotizacion.total), 0),
+    createdAt: orden.fechaRecepcion,
+    updatedAt: orden.fechaEntrega || orden.fechaRecepcion,
+    garantiaDias: orden.garantiaDias,
+    tecnico: orden.tecnico
+      ? {
+          id: orden.tecnico.id,
+          nombre: orden.tecnico.nombre || orden.tecnico.email || 'Tecnico',
+          email: orden.tecnico.email || null,
+        }
+      : null,
+    cotizaciones,
+    totalCotizado: cotizaciones.reduce((sum, cotizacion) => sum + cotizacion.total, 0),
   };
 }
 
@@ -74,7 +166,7 @@ function buildServiciosReport(ordenes) {
     const estado = orden.estado?.nombre || null;
     incrementCounter(porEstado, estado);
     incrementCounter(porPrioridad, orden.prioridad?.prioridad || null);
-    totalCotizado += orden.cotizaciones.reduce((sum, cotizacion) => sum + Number(cotizacion.total), 0);
+    totalCotizado += orden.cotizaciones.reduce((sum, cotizacion) => sum + toNumber(cotizacion.total), 0);
 
     if (['entregado', 'listo', 'sin solucion'].includes(String(estado || '').toLowerCase())) {
       cerradas += 1;
@@ -92,30 +184,83 @@ function buildServiciosReport(ordenes) {
   };
 }
 
+function mapDetalleVenta(detalle) {
+  const cantidad = Number(detalle.cantidad || 0);
+  const precioUnitario = toNumber(detalle.precioUnitario);
+  const subtotal = toNumber(detalle.subtotal || cantidad * precioUnitario);
+
+  return {
+    id: detalle.id,
+    productoId: detalle.idProducto,
+    nombre: detalle.producto?.nombre || 'Producto',
+    producto: detalle.producto
+      ? {
+          id: detalle.producto.id,
+          nombre: detalle.producto.nombre,
+          marca: detalle.producto.marca || null,
+          modelo: detalle.producto.modelo || null,
+          categoria: detalle.producto.categoria || null,
+          tipoInventario: detalle.producto.tipoInventario || null,
+        }
+      : null,
+    cantidad,
+    quantity: cantidad,
+    precioUnitario,
+    unitPrice: precioUnitario,
+    subtotal,
+    total: subtotal,
+  };
+}
+
 function mapVentaResumen(venta) {
+  const productos = venta.detalles.map(mapDetalleVenta);
+  const subtotal = productos.reduce((sum, detalle) => sum + detalle.subtotal, 0);
+  const total = toNumber(venta.total);
+  const descuento = Math.max(subtotal - total, 0);
+  const cliente = mapCliente(venta.cliente, venta.clienteNombre || 'Cliente mostrador');
+
   return {
     id: venta.id,
     numero: venta.numero,
+    number: venta.reciboCodigo || venta.numero,
     codigo: venta.reciboCodigo,
     reciboCodigo: venta.reciboCodigo,
+    recibo: {
+      codigo: venta.reciboCodigo,
+      numero: venta.numero,
+      fecha: venta.fechaCreacion,
+      estado: 'Emitido',
+    },
     clienteId: venta.idCliente,
-    clienteNombre: venta.cliente?.razonSocial || venta.clienteNombre,
-    total: Number(venta.total),
+    cliente,
+    clienteNombre: cliente?.razonSocial || cliente?.nombre || venta.clienteNombre || 'Cliente mostrador',
+    metodoPago: venta.metodoPago || null,
+    subtotal,
+    descuento,
+    total,
     fechaCreacion: venta.fechaCreacion,
-    totalProductos: venta.detalles.reduce((sum, detalle) => sum + detalle.cantidad, 0),
+    issuedAt: venta.fechaCreacion,
+    createdAt: venta.fechaCreacion,
+    productos,
+    detalles: productos,
+    totalProductos: productos.reduce((sum, detalle) => sum + detalle.cantidad, 0),
   };
 }
 
 function buildVentasReport(ventas) {
   const productos = new Map();
+  const metodosPago = {};
   let ingresos = 0;
   let unidadesVendidas = 0;
 
   for (const venta of ventas) {
-    ingresos += Number(venta.total);
+    ingresos += toNumber(venta.total);
+    incrementCounter(metodosPago, venta.metodoPago || 'No registrado');
 
     for (const detalle of venta.detalles) {
-      unidadesVendidas += detalle.cantidad;
+      const cantidad = Number(detalle.cantidad || 0);
+      const subtotal = toNumber(detalle.subtotal);
+      unidadesVendidas += cantidad;
       const current = productos.get(detalle.idProducto) || {
         productoId: detalle.idProducto,
         nombre: detalle.producto?.nombre || 'Producto',
@@ -123,8 +268,8 @@ function buildVentasReport(ventas) {
         ingresos: 0,
       };
 
-      current.cantidad += detalle.cantidad;
-      current.ingresos += Number(detalle.subtotal);
+      current.cantidad += cantidad;
+      current.ingresos += subtotal;
       productos.set(detalle.idProducto, current);
     }
   }
@@ -134,6 +279,7 @@ function buildVentasReport(ventas) {
     ingresos,
     unidadesVendidas,
     ticketPromedio: ventas.length ? ingresos / ventas.length : 0,
+    metodosPago,
     productosMasVendidos: Array.from(productos.values())
       .sort((a, b) => b.cantidad - a.cantidad || b.ingresos - a.ingresos)
       .slice(0, 10),
@@ -143,7 +289,7 @@ function buildVentasReport(ventas) {
 
 function buildInventarioReport(productos) {
   const stockBajo = productos.filter((producto) => producto.stock <= producto.stockMinimo);
-  const valorInventario = productos.reduce((sum, producto) => sum + Number(producto.precio) * producto.stock, 0);
+  const valorInventario = productos.reduce((sum, producto) => sum + toNumber(producto.precio) * producto.stock, 0);
 
   return {
     totalProductos: productos.length,
