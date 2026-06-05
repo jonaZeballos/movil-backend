@@ -346,7 +346,7 @@ const options = {
             descuento: { type: 'number', example: 10 },
             metodoPago: {
               type: 'string',
-              enum: ['efectivo', 'qr', 'tarjeta', 'transferencia'],
+              enum: ['efectivo', 'qr'],
               example: 'efectivo',
             },
             items: {

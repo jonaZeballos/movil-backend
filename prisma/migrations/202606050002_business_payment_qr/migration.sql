@@ -1,0 +1,1 @@
+ALTER TABLE "negocio" ADD COLUMN IF NOT EXISTS "qr_pago_url" TEXT;

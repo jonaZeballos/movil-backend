@@ -87,6 +87,9 @@ function createVentaConStock({ venta, detalles, idNegocio }) {
       },
       include: includeVenta(),
     });
+  }, {
+    maxWait: 10000,
+    timeout: 20000,
   });
 }
 
