@@ -11,6 +11,7 @@ const {
 	bloquearUsuario,
 	desbloquearUsuario,
 	registrarUsuarioCliente,
+	cambiarRolUsuario,
 } = require('../controllers/usuario.controller');
 const { requireAuth, requireAdmin } = require('../middlewares');
 
@@ -22,6 +23,7 @@ router.patch('/me', requireAuth, requireAdmin, actualizarPerfilActual);
 router.patch('/me/password', requireAuth, requireAdmin, actualizarPasswordActual);
 router.patch('/:id/bloquear', requireAuth, requireAdmin, bloquearUsuario);
 router.patch('/:id/desbloquear', requireAuth, requireAdmin, desbloquearUsuario);
+router.patch('/:id/rol', requireAuth, requireAdmin, cambiarRolUsuario);
 router.post('/registro', registrarUsuario);
 router.post('/registro-tecnico', requireAuth, requireAdmin, registrarUsuarioTecnico);
 router.post('/registro-ventas', requireAuth, requireAdmin, registrarUsuarioVentas);

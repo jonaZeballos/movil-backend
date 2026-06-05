@@ -143,6 +143,19 @@ async function loginUsuario(req, res, next) {
   }
 }
 
+async function cambiarRolUsuario(req, res, next) {
+  try {
+    const usuario = await usuarioService.cambiarRolUsuario(req.params.id, req.body, req.auth);
+
+    return res.json({
+      mensaje: 'Rol de usuario actualizado correctamente',
+      data: usuario,
+    });
+  } catch (error) {
+    return next(error);
+  }
+}
+
 module.exports = {
   registrarUsuario,
   registrarUsuarioTecnico,
@@ -155,4 +168,5 @@ module.exports = {
   desbloquearUsuario,
   registrarUsuarioCliente,
   loginUsuario,
+  cambiarRolUsuario,
 };
