@@ -410,9 +410,14 @@ async function bloquearUsuario(id, payload, auth) {
     throw new AppError('Usuario no encontrado', 404);
   }
 
+  const motivo = payload?.motivo?.trim();
+  if (!motivo) {
+    throw new AppError('Debe ingresar un motivo para bloquear el usuario.', 400);
+  }
+
   const updatedUser = await usuarioRepository.updateUser(id, {
     bloqueado: true,
-    motivoBloqueo: optionalReason(payload?.motivo, 'Bloqueado por administrador'),
+    motivoBloqueo: optionalReason(motivo, 'Bloqueado por administrador'),
     fechaBloqueo: new Date(),
   });
 
@@ -552,6 +557,50 @@ async function loginUsuario(payload) {
   };
 }
 
+async function cambiarRolUsuario(id, payload, auth) {
+  const idNegocio = getAuthBusinessId(auth);
+  if (!idNegocio) {
+    throw new AppError('No se pudo identificar el negocio del usuario autenticado', 401);
+  }
+
+  // 1. Validar rol destino
+  const rolDestino = payload?.rol?.trim()?.toLowerCase();
+  if (!rolDestino || !['tecnico', 'ventas'].includes(rolDestino)) {
+    throw new AppError('El rol destino solo puede ser tecnico o ventas', 400);
+  }
+
+  // 2. Obtener usuario objetivo
+  const usuario = await usuarioRepository.findUserById(id, idNegocio);
+  if (!usuario) {
+    throw new AppError('Usuario no encontrado', 404);
+  }
+
+  // 3. Validar tipo de usuario (no clientes, no admins, debe pertenecer al mismo negocio)
+  if (usuario.cliente) {
+    throw new AppError('No se permite cambiar el rol de clientes', 400);
+  }
+
+  const rolActual = String(usuario.rol?.rol || '').toLowerCase();
+  if (rolActual === 'admin') {
+    throw new AppError('No se permite cambiar el rol de administradores', 400);
+  }
+
+  // 4. Si el rol destino es igual al actual, responder de forma controlada
+  if (rolActual === rolDestino) {
+    return mapUsuario(usuario);
+  }
+
+  // 5. Buscar ID del rol destino
+  const idRol = await getRoleId(rolDestino);
+  if (!idRol) {
+    throw new AppError('No se encontro el rol especificado', 500);
+  }
+
+  // 6. Actualizar
+  const updatedUser = await usuarioRepository.updateUser(id, { idRol });
+  return mapUsuario(updatedUser);
+}
+
 module.exports = {
   registrarUsuario,
   registrarUsuarioTecnico,
@@ -564,4 +613,5 @@ module.exports = {
   desbloquearUsuario,
   registrarUsuarioCliente,
   loginUsuario,
+  cambiarRolUsuario,
 };

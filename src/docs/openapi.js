@@ -427,6 +427,37 @@ const options = {
           },
         },
       },
+      '/api/usuarios/{id}/rol': {
+        patch: {
+          tags: ['Usuarios'],
+          summary: 'Cambiar el rol de un usuario empleado (solo admin)',
+          security: [{ bearerAuth: [] }],
+          parameters: [
+            { in: 'path', name: 'id', required: true, schema: { type: 'string' } },
+          ],
+          requestBody: {
+            required: true,
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  required: ['rol'],
+                  properties: {
+                    rol: { type: 'string', enum: ['tecnico', 'ventas'], example: 'ventas' },
+                  },
+                },
+              },
+            },
+          },
+          responses: {
+            200: { description: 'Rol de usuario actualizado correctamente' },
+            400: { description: 'Parametros o rol destino invalido' },
+            401: { description: 'No autenticado' },
+            403: { description: 'Sin permisos' },
+            404: { description: 'Usuario no encontrado' },
+          },
+        },
+      },
       '/api/negocio/me': {
         get: {
           tags: ['Negocio'],
