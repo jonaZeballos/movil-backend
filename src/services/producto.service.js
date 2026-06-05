@@ -8,13 +8,45 @@ const INVENTORY_TYPES = {
 };
 
 const DEFAULT_PRODUCT_CATEGORIES = {
-  tienda: ['LAPTOPS', 'CARGADORES', 'MOUSE', 'TECLADOS', 'OTROS'],
-  tecnico: ['PANTALLAS', 'PLACAS', 'COMPONENTES ELECTRONICOS', 'OTROS'],
+  tienda: [
+    'CARGADORES',
+    'CABLES Y ADAPTADORES',
+    'PERIFERICOS',
+    'MEMORIAS Y ALMACENAMIENTO',
+    'REPUESTOS',
+    'LIMPIEZA Y MANTENIMIENTO',
+    'OTROS',
+  ],
+  tecnico: [
+    'HERRAMIENTAS',
+    'CONSUMIBLES TECNICOS',
+    'REPUESTOS INTERNOS',
+    'LIMPIEZA TECNICA',
+    'SOLDADURA Y REPARACION',
+    'DIAGNOSTICO',
+    'OTROS',
+  ],
 };
 
 const DEPRECATED_DEFAULT_CATEGORIES = {
-  tienda: ['EQUIPOS', 'ACCESORIOS'],
-  tecnico: ['REPUESTOS', 'HERRAMIENTAS', 'CONSUMIBLES'],
+  tienda: [
+    'EQUIPOS',
+    'LAPTOPS',
+    'MOUSE',
+    'TECLADOS',
+    'ACCESORIOS',
+    'COMPONENTES',
+    'REDES Y CONECTIVIDAD',
+  ],
+  tecnico: [
+    'PANTALLAS',
+    'PLACAS',
+    'REPUESTOS',
+    'CONSUMIBLES',
+    'COMPONENTES ELECTRONICOS',
+    'TORNILLERIA Y FIJACIONES',
+    'CABLES INTERNOS',
+  ],
 };
 
 function normalizeText(value, fieldName) {
@@ -162,6 +194,12 @@ async function ensureDefaultCategories(idNegocio, tipoInventario = INVENTORY_TYP
     DEPRECATED_DEFAULT_CATEGORIES[tipoInventario] || []
   );
 
+  await productoRepository.deactivateCategoriasByNames(
+    idNegocio,
+    tipoInventario,
+    DEPRECATED_DEFAULT_CATEGORIES[tipoInventario] || []
+  );
+
   await productoRepository.createManyCategorias(
     DEFAULT_PRODUCT_CATEGORIES[tipoInventario].map((nombre) => ({
       id: randomUUID(),
@@ -229,7 +267,9 @@ async function createProducto(payload, auth) {
   const tipoInventario = normalizeInventoryType(payload.tipoInventario);
   assertInventoryAccess(tipoInventario, auth, true);
   const nombre = normalizeText(payload.nombre, 'nombre');
-  const precio = parseMoney(payload.precio, 'precio');
+  const precio = tipoInventario === INVENTORY_TYPES.TECNICO && (payload.precio === undefined || payload.precio === null || payload.precio === '')
+    ? 0
+    : parseMoney(payload.precio, 'precio');
   const stock = parseStock(payload.stock, 'stock');
   const stockMinimo = parseStock(payload.stockMinimo, 'stockMinimo', 1);
   const idNegocio = getAuthBusinessId(auth);

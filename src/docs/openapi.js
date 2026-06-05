@@ -237,15 +237,17 @@ const options = {
         },
         ProductoRequest: {
           type: 'object',
-          required: ['nombre', 'precio', 'stock'],
+          required: ['nombre', 'stock', 'stockMinimo'],
           properties: {
             nombre: { type: 'string', example: 'Fuente ATX 500W' },
             marca: { type: 'string', example: 'Cooler Master' },
             modelo: { type: 'string', example: 'MWE 500' },
             descripcion: { type: 'string', example: 'Repuesto para PC de escritorio' },
-            precio: { type: 'number', example: 280 },
+            precio: { type: 'number', example: 280, description: 'Obligatorio para inventario de tienda. Opcional para inventario tecnico; si se omite se guarda como 0.' },
             stock: { type: 'integer', example: 5 },
             stockMinimo: { type: 'integer', example: 2 },
+            tipoInventario: { type: 'string', enum: ['tienda', 'tecnico'], example: 'tienda' },
+            idCategoria: { type: 'string', nullable: true },
           },
         },
         Cotizacion: {

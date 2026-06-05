@@ -172,6 +172,24 @@ function removeUnusedCategoriasByNames(idNegocio, tipoInventario, nombres) {
   });
 }
 
+function deactivateCategoriasByNames(idNegocio, tipoInventario, nombres) {
+  if (!Array.isArray(nombres) || nombres.length === 0) {
+    return Promise.resolve({ count: 0 });
+  }
+
+  return prisma.categoriaProducto.updateMany({
+    where: {
+      idNegocio,
+      tipoInventario,
+      nombre: { in: nombres },
+      activa: true,
+    },
+    data: {
+      activa: false,
+    },
+  });
+}
+
 module.exports = {
   list,
   findById,
@@ -186,4 +204,5 @@ module.exports = {
   createManyCategorias,
   updateCategoria,
   removeUnusedCategoriasByNames,
+  deactivateCategoriasByNames,
 };
