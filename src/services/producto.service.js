@@ -9,13 +9,35 @@ const INVENTORY_TYPES = {
 
 const DEFAULT_PRODUCT_CATEGORIES = {
   tienda: [
-    'CARGADORES',
-    'CABLES Y ADAPTADORES',
+    'LAPTOPS',
     'PERIFERICOS',
+    'CARGADORES',
+    'MONITORES',
+    'COMPONENTES',
+    'CABLES Y ADAPTADORES',
+    'OTROS',
+  ],
+  tecnico: [
+    'PANTALLAS',
+    'PLACAS',
+    'PUERTOS',
+    'BATERIAS',
+    'TECLADOS',
+    'BISAGRAS Y CARCASAS',
+    'INSUMOS TECNICOS',
+    'OTROS',
+  ],
+};
+const DEPRECATED_DEFAULT_CATEGORIES = {
+  tienda: [
+    'EQUIPOS',
+    'MOUSE',
+    'TECLADOS',
+    'ACCESORIOS',
+    'REDES Y CONECTIVIDAD',
     'MEMORIAS Y ALMACENAMIENTO',
     'REPUESTOS',
     'LIMPIEZA Y MANTENIMIENTO',
-    'OTROS',
   ],
   tecnico: [
     'HERRAMIENTAS',
@@ -24,23 +46,6 @@ const DEFAULT_PRODUCT_CATEGORIES = {
     'LIMPIEZA TECNICA',
     'SOLDADURA Y REPARACION',
     'DIAGNOSTICO',
-    'OTROS',
-  ],
-};
-
-const DEPRECATED_DEFAULT_CATEGORIES = {
-  tienda: [
-    'EQUIPOS',
-    'LAPTOPS',
-    'MOUSE',
-    'TECLADOS',
-    'ACCESORIOS',
-    'COMPONENTES',
-    'REDES Y CONECTIVIDAD',
-  ],
-  tecnico: [
-    'PANTALLAS',
-    'PLACAS',
     'REPUESTOS',
     'CONSUMIBLES',
     'COMPONENTES ELECTRONICOS',
@@ -48,7 +53,6 @@ const DEPRECATED_DEFAULT_CATEGORIES = {
     'CABLES INTERNOS',
   ],
 };
-
 function normalizeText(value, fieldName) {
   if (typeof value !== 'string' || !value.trim()) {
     throw new AppError(`El campo ${fieldName} es obligatorio`, 400);
