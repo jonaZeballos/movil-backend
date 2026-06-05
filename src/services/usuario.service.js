@@ -2,6 +2,17 @@ const { randomUUID } = require('crypto');
 const AppError = require('../utils/appError');
 const { hashPassword, verifyPassword } = require('../utils/password');
 const { signToken } = require('../utils/token');
+const {
+  BOLIVIAN_CI_MESSAGE,
+  BOLIVIAN_MOBILE_MESSAGE,
+  EMAIL_FORMAT_MESSAGE,
+  isInternalEmail,
+  isValidBolivianCI,
+  isValidBolivianMobile,
+  isValidEmail,
+  normalizeBolivianPhone,
+  normalizeDigits,
+} = require('../utils/validators');
 const usuarioRepository = require('../repositories/usuario.repository');
 
 const PERSON_NAME_REGEX = /^[A-Za-zÁÉÍÓÚÜÑáéíóúüñ]+(?:\s+[A-Za-zÁÉÍÓÚÜÑáéíóúüñ]+)*$/;
@@ -38,8 +49,8 @@ function normalizePersonName(value, fieldName) {
 
 function normalizeEmail(value) {
   const email = normalizeText(value, 'email').toLowerCase();
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-    throw new AppError('El campo email no tiene un formato valido', 400);
+  if (!isValidEmail(email) || isInternalEmail(email)) {
+    throw new AppError(EMAIL_FORMAT_MESSAGE, 400);
   }
 
   return email;
@@ -71,9 +82,9 @@ function parsePhoneNumber(value) {
     throw new AppError('El campo numero es obligatorio', 400);
   }
 
-  const digits = String(value).replace(/\D/g, '');
-  if (!digits) {
-    throw new AppError('El campo numero debe ser numerico', 400);
+  const digits = normalizeBolivianPhone(value);
+  if (!isValidBolivianMobile(digits)) {
+    throw new AppError(BOLIVIAN_MOBILE_MESSAGE, 400);
   }
 
   return BigInt(digits);
@@ -81,11 +92,11 @@ function parsePhoneNumber(value) {
 
 function parseOptionalPhoneNumber(value) {
   if (value === undefined) return undefined;
-  if (value === null || value === '') return null;
+  if (value === null || String(value).trim() === '') return null;
 
-  const digits = String(value).replace(/\D/g, '');
-  if (!digits) {
-    throw new AppError('El campo telefono debe ser numerico', 400);
+  const digits = normalizeBolivianPhone(value);
+  if (!isValidBolivianMobile(digits)) {
+    throw new AppError(BOLIVIAN_MOBILE_MESSAGE, 400);
   }
 
   return BigInt(digits);
@@ -96,9 +107,9 @@ function parseDocumentNumber(value) {
     throw new AppError('El campo numeroDocumento es obligatorio', 400);
   }
 
-  const digits = String(value).replace(/\D/g, '');
-  if (!digits) {
-    throw new AppError('El campo numeroDocumento debe ser numerico', 400);
+  const digits = normalizeDigits(value);
+  if (!isValidBolivianCI(digits)) {
+    throw new AppError(BOLIVIAN_CI_MESSAGE, 400);
   }
 
   return BigInt(digits);
@@ -152,7 +163,7 @@ async function registrarUsuarioConRol(payload, roleName) {
   const username = payload.username ? normalizeUsername(payload.username) : normalizeUsername(email.split('@')[0]);
   const password = normalizePassword(payload.password);
   const fechaCreacion = parseCreationDate(payload.fechaCreacion);
-  const numero = parsePhoneNumber(payload.numero ?? payload.telefono ?? '0');
+  const numero = parseOptionalPhoneNumber(payload.numero ?? payload.telefono);
   const normalizedRoleName = roleName ? normalizeText(roleName, 'rol') : null;
   const idNegocio = payload.idNegocio || null;
 
@@ -176,12 +187,16 @@ async function registrarUsuarioConRol(payload, roleName) {
     fechaCreacion,
     idRol,
     idNegocio,
-    telefonos: {
-      create: {
-        id: randomUUID(),
-        numero,
-      },
-    },
+    ...(numero
+      ? {
+          telefonos: {
+            create: {
+              id: randomUUID(),
+              numero,
+            },
+          },
+        }
+      : {}),
   });
 
   return {
@@ -189,7 +204,7 @@ async function registrarUsuarioConRol(payload, roleName) {
     rol: createdUser.rol ? createdUser.rol.rol : null,
     idNegocio: createdUser.idNegocio,
     negocio: createdUser.negocio || null,
-    numero: numero.toString(),
+    numero: numero ? numero.toString() : null,
   };
 }
 

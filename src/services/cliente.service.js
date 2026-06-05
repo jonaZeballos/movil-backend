@@ -1,6 +1,17 @@
 const { randomUUID } = require('crypto');
 const AppError = require('../utils/appError');
 const { hashPassword } = require('../utils/password');
+const {
+  BOLIVIAN_CI_MESSAGE,
+  BOLIVIAN_MOBILE_MESSAGE,
+  EMAIL_FORMAT_MESSAGE,
+  isInternalEmail,
+  isValidBolivianCI,
+  isValidBolivianMobile,
+  isValidEmail,
+  normalizeBolivianPhone,
+  normalizeDigits,
+} = require('../utils/validators');
 const clienteRepository = require('../repositories/cliente.repository');
 const usuarioRepository = require('../repositories/usuario.repository');
 
@@ -302,13 +313,21 @@ async function createCliente(payload, auth) {
     throw new AppError('Ingrese el nombre completo del cliente', 400);
   }
 
-  const rawDocumento = validateDigits(payload.numeroDocumento, 'numeroDocumento', 5, 15);
-  const rawNumero = validateDigits(payload.numero ?? payload.telefono, 'numero', 8, 8);
+  const rawDocumento = normalizeDigits(payload.numeroDocumento);
+  if (!isValidBolivianCI(rawDocumento)) {
+    throw new AppError(BOLIVIAN_CI_MESSAGE, 400);
+  }
+
+  const rawNumero = normalizeBolivianPhone(payload.numero ?? payload.telefono);
+  if (!isValidBolivianMobile(rawNumero)) {
+    throw new AppError(BOLIVIAN_MOBILE_MESSAGE, 400);
+  }
+
   const numeroDocumento = parseBigInt(rawDocumento, 'numeroDocumento');
   const numero = parseBigInt(rawNumero, 'numero');
   const email = optionalText(payload.email ?? payload.correo);
-  if (email && !/^\S+@\S+\.\S+$/.test(email)) {
-    throw new AppError('Ingrese un correo valido', 400);
+  if (email && (!isValidEmail(email) || isInternalEmail(email))) {
+    throw new AppError(EMAIL_FORMAT_MESSAGE, 400);
   }
   const direccion = optionalText(payload.direccion ?? payload.address ?? payload.domicilio);
   if (direccion && direccion.length < 5) {
