@@ -20,7 +20,7 @@ function isNotificationVisibleForRole(notificacion, role) {
   const tipo = String(notificacion.tipo || '').toLowerCase();
 
   if (role === 'tecnico') {
-    return ['orden_estado', 'cotizacion', 'sistema', 'system'].includes(tipo);
+    return ['orden', 'orden_estado', 'cotizacion', 'sistema', 'system'].includes(tipo);
   }
 
   if (role === 'ventas') {

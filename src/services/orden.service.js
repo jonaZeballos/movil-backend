@@ -344,6 +344,18 @@ async function createOrden(payload, auth) {
     idNegocio,
   });
 
+  const clientName = equipo.cliente?.razonSocial || 'Cliente';
+  const equipmentName = `${equipo.tipoEquipo?.nombre || 'Equipo'} ${equipo.modelo?.marca?.nombre || ''} ${equipo.modelo?.nombreModelo || ''}`.trim();
+
+  await notificacionService.notifySystem({
+    tipo: 'orden',
+    titulo: 'Nueva orden de servicio',
+    mensaje: `Se registró una orden para ${clientName} (${equipmentName}).`,
+    referenciaId: orden.id,
+    referenciaTipo: 'orden',
+    idNegocio,
+  });
+
   return mapOrden(orden);
 }
 
@@ -394,6 +406,16 @@ async function createOrdenesLote(payload, auth) {
         idNegocio,
       }))
     );
+
+    const clientName = equipos[0]?.cliente?.razonSocial || 'Cliente';
+    await notificacionService.notifySystem({
+      tipo: 'orden',
+      titulo: 'Nueva orden de servicio',
+      mensaje: `Se registraron ${ordenes.length} ordenes en lote para ${clientName}.`,
+      referenciaId: ordenes[0]?.id || null,
+      referenciaTipo: 'orden',
+      idNegocio,
+    });
 
     return ordenes.map(mapOrden);
   } catch (error) {
