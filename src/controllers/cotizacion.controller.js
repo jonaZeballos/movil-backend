@@ -1,4 +1,4 @@
-const cotizacionService = require('../services/cotizacion.service');
+﻿const cotizacionService = require('../services/cotizacion.service');
 
 async function listarCotizaciones(req, res, next) {
   try {
@@ -52,9 +52,24 @@ async function registrarCotizacion(req, res, next) {
   }
 }
 
+
+async function completarPagoCotizacion(req, res, next) {
+  try {
+    const cotizacion = await cotizacionService.completarPagoCotizacion(req.params.id, req.body, req.auth);
+
+    return res.json({
+      mensaje: 'Pago de cotizacion registrado correctamente',
+      data: cotizacion,
+    });
+  } catch (error) {
+    return next(error);
+  }
+}
 module.exports = {
   listarCotizaciones,
   obtenerCotizacion,
   obtenerWhatsappCotizacion,
   registrarCotizacion,
+  completarPagoCotizacion,
 };
+

@@ -223,6 +223,7 @@ model Producto {
   categoria     CategoriaProducto? @relation(fields: [idCategoria], references: [id])
   tecnico       Usuario?       @relation("ProductoTecnico", fields: [idTecnico], references: [id])
   detallesVenta VentaDetalle[]
+  cotizacionRepuestos CotizacionRepuesto[]
 
   @@index([idNegocio])
   @@index([idCategoria])
@@ -255,23 +256,50 @@ model Cotizacion {
   descripcion   String   @db.VarChar(500)
   manoObra      Decimal  @map("mano_obra") @db.Decimal(10, 2)
   repuestos     Decimal  @db.Decimal(10, 2)
-  descuento     Decimal  @default(0) @db.Decimal(10, 2)
-  total         Decimal  @db.Decimal(10, 2)
-  observaciones String?  @db.VarChar(1024)
-  estado        String   @default("Pendiente") @db.VarChar(50)
-  fechaCreacion DateTime @default(now()) @map("fecha_creacion") @db.Timestamp(6)
+  descuento          Decimal   @default(0) @db.Decimal(10, 2)
+  total              Decimal   @db.Decimal(10, 2)
+  anticipo           Decimal   @default(0) @db.Decimal(10, 2)
+  pagoFinal          Decimal   @default(0) @map("pago_final") @db.Decimal(10, 2)
+  saldoPendiente     Decimal   @default(0) @map("saldo_pendiente") @db.Decimal(10, 2)
+  metodoPagoAnticipo String?   @map("metodo_pago_anticipo") @db.VarChar(50)
+  metodoPagoSaldo    String?   @map("metodo_pago_saldo") @db.VarChar(50)
+  estadoPago         String    @default("Sin pago") @map("estado_pago") @db.VarChar(50)
+  fechaAnticipo      DateTime? @map("fecha_anticipo") @db.Timestamp(6)
+  fechaPagoFinal     DateTime? @map("fecha_pago_final") @db.Timestamp(6)
+  observaciones      String?   @db.VarChar(1024)
+  estado             String    @default("Pendiente") @db.VarChar(50)
+  fechaCreacion      DateTime  @default(now()) @map("fecha_creacion") @db.Timestamp(6)
 
   idOrden   String        @map("id_orden_servicio") @db.VarChar(1000)
   orden     OrdenServicio @relation(fields: [idOrden], references: [id])
   idNegocio String        @map("id_negocio") @db.VarChar(1000)
   negocio   Negocio       @relation(fields: [idNegocio], references: [id])
   ordenLinks CotizacionOrden[]
+  repuestosDetalle CotizacionRepuesto[]
 
   @@unique([idNegocio, numero])
   @@index([idNegocio])
   @@map("cotizacion")
 }
 
+
+model CotizacionRepuesto {
+  id             String   @id @map("id_cotizacion_repuesto") @db.VarChar(1000)
+  origen         String   @default("externo") @db.VarChar(20)
+  nombre         String   @db.VarChar(200)
+  cantidad       Int
+  precioUnitario Decimal  @map("precio_unitario") @db.Decimal(10, 2)
+  subtotal       Decimal  @db.Decimal(10, 2)
+
+  idCotizacion String      @map("id_cotizacion") @db.VarChar(1000)
+  cotizacion   Cotizacion  @relation(fields: [idCotizacion], references: [id], onDelete: Cascade)
+  idProducto   String?     @map("id_producto") @db.VarChar(1000)
+  producto     Producto?   @relation(fields: [idProducto], references: [id])
+
+  @@index([idCotizacion])
+  @@index([idProducto])
+  @@map("cotizacion_repuesto")
+}
 model CotizacionOrden {
   id           String @id @map("id_cotizacion_orden") @db.VarChar(1000)
   idCotizacion String @map("id_cotizacion") @db.VarChar(1000)
@@ -336,3 +364,4 @@ model Notificacion {
   @@index([idNegocio])
   @@map("notificacion")
 }
+

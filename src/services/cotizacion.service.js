@@ -2,6 +2,7 @@ const { randomUUID } = require('crypto');
 const AppError = require('../utils/appError');
 const cotizacionRepository = require('../repositories/cotizacion.repository');
 const ordenRepository = require('../repositories/orden.repository');
+const productoRepository = require('../repositories/producto.repository');
 const notificacionService = require('./notificacion.service');
 
 const COTIZACION_VALIDEZ_DIAS = 1;
@@ -54,6 +55,127 @@ function parseMoney(value, fieldName, defaultValue = 0) {
   return number;
 }
 
+
+const PAYMENT_METHOD_LABELS = {
+  efectivo: 'Efectivo',
+  qr: 'QR',
+};
+
+function normalizePaymentMethod(value, fieldName = 'metodoPago') {
+  const rawValue = typeof value === 'object' && value !== null
+    ? value.id || value.label || value.name || value.nombre
+    : value;
+  const text = optionalText(rawValue);
+
+  if (!text) return null;
+
+  const key = text
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase();
+
+  if (!PAYMENT_METHOD_LABELS[key]) {
+    throw new AppError(`El campo ${fieldName} debe ser efectivo o QR`, 400);
+  }
+
+  return PAYMENT_METHOD_LABELS[key];
+}
+
+function getPaymentState(total, anticipo, pagoFinal = 0) {
+  const paid = Number(anticipo || 0) + Number(pagoFinal || 0);
+  if (paid <= 0) return 'Sin pago';
+  if (paid >= Number(total || 0)) return 'Pagado';
+  return 'Anticipo parcial';
+}
+
+function parsePositiveInteger(value, fieldName) {
+  const number = Number(value);
+  if (!Number.isInteger(number) || number <= 0) {
+    throw new AppError(`El campo ${fieldName} debe ser un entero mayor a 0`, 400);
+  }
+
+  return number;
+}
+
+function normalizeQuotationPartOrigin(value) {
+  const origin = optionalText(value) || 'externo';
+  const normalized = origin
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase();
+
+  return normalized === 'inventario' ? 'inventario' : 'externo';
+}
+
+function mapRepuestoCotizacion(item) {
+  return {
+    id: item.id,
+    origen: item.origen || 'externo',
+    productoId: item.idProducto || null,
+    idProducto: item.idProducto || null,
+    nombre: item.nombre,
+    cantidad: Number(item.cantidad || 0),
+    precioUnitario: Number(item.precioUnitario || 0),
+    subtotal: Number(item.subtotal || 0),
+    producto: item.producto
+      ? {
+          id: item.producto.id,
+          nombre: item.producto.nombre,
+          marca: item.producto.marca || null,
+          modelo: item.producto.modelo || null,
+          stock: item.producto.stock,
+          tipoInventario: item.producto.tipoInventario,
+        }
+      : null,
+  };
+}
+
+async function normalizeQuotationParts(parts = [], idNegocio, auth) {
+  if (!Array.isArray(parts) || parts.length === 0) return [];
+
+  const normalizedParts = [];
+  for (const [index, item] of parts.entries()) {
+    const origen = normalizeQuotationPartOrigin(item.origen || item.tipo || item.source);
+    const cantidad = parsePositiveInteger(item.cantidad ?? item.quantity, `repuestos[${index}].cantidad`);
+    let nombre = optionalText(item.nombre || item.name);
+    let precioUnitario = parseMoney(item.precioUnitario ?? item.unitPrice ?? item.precio, `repuestos[${index}].precioUnitario`);
+    let idProducto = optionalText(item.productoId || item.idProducto);
+
+    if (origen === 'inventario') {
+      if (!idProducto) {
+        throw new AppError('Seleccione un producto del inventario tecnico', 400);
+      }
+
+      const producto = await productoRepository.findById(idProducto, idNegocio);
+      if (!producto || producto.tipoInventario !== 'tecnico') {
+        throw new AppError('El repuesto seleccionado no pertenece al inventario tecnico', 400);
+      }
+
+      if (producto.idTecnico && auth?.rol === 'tecnico' && producto.idTecnico !== auth.id) {
+        throw new AppError('No tienes acceso a este repuesto tecnico', 403);
+      }
+
+      nombre = producto.nombre;
+      precioUnitario = Number(producto.precio || 0);
+    } else {
+      idProducto = null;
+      nombre = normalizeText(nombre, `repuestos[${index}].nombre`);
+    }
+
+    const subtotal = cantidad * precioUnitario;
+    normalizedParts.push({
+      id: randomUUID(),
+      origen,
+      nombre,
+      cantidad,
+      precioUnitario,
+      subtotal,
+      idProducto,
+    });
+  }
+
+  return normalizedParts;
+}
 function normalizeWhatsappPhone(phone) {
   const digits = phone ? String(phone).replace(/\D/g, '') : '';
 
@@ -216,6 +338,7 @@ function mapCotizacion(cotizacion) {
     vencida: !activa,
     realizadoPor: null,
     idNegocio: cotizacion.idNegocio || null,
+    repuestosDetalle: Array.isArray(cotizacion.repuestosDetalle) ? cotizacion.repuestosDetalle.map(mapRepuestoCotizacion) : [],
     negocio: cotizacion.orden?.negocio
       ? {
           id: cotizacion.orden.negocio.id,
@@ -247,6 +370,9 @@ function buildWhatsappMessage(cotizacion, creator) {
   const equipoTexto = equipo
     ? `${equipo.tipoEquipo?.nombre || 'Equipo'} ${equipo.modelo?.marca?.nombre || ''} ${equipo.modelo?.nombreModelo || ''}`.trim()
     : 'Equipo no especificado';
+  const repuestosTexto = Array.isArray(cotizacion.repuestosDetalle)
+    ? cotizacion.repuestosDetalle.map((item) => '- ' + item.cantidad + ' x ' + item.nombre + ' (' + (item.origen || 'externo') + ') - Bs ' + Number(item.subtotal).toFixed(2))
+    : [];
   const ordenesTexto = ordenes.map((orden) => {
     const resumen = mapOrdenResumen(orden);
     return `- ${resumen.code} - ${resumen.equipo?.nombre || 'Equipo no especificado'} - ${resumen.diagnostico || 'Sin diagnostico'}`;
@@ -323,15 +449,28 @@ async function createCotizacion(payload, auth) {
   const ordenId = ordenIds[0];
   const descripcion = normalizeText(payload.descripcion, 'descripcion');
   const manoObra = parseMoney(payload.manoObra, 'manoObra');
-  const repuestos = parseMoney(payload.repuestos, 'repuestos');
+  const idNegocio = getAuthBusinessId(auth);
+  const repuestosDetalle = await normalizeQuotationParts(payload.repuestosDetalle || payload.repuestosItems || payload.materiales || [], idNegocio, auth);
+  const repuestosCalculados = repuestosDetalle.reduce((sum, item) => sum + Number(item.subtotal || 0), 0);
+  const repuestos = repuestosDetalle.length ? repuestosCalculados : parseMoney(payload.repuestos, 'repuestos');
   const descuento = parseMoney(payload.descuento, 'descuento', 0);
   const subtotal = manoObra + repuestos;
+  const total = subtotal - descuento;
+  const anticipo = parseMoney(payload.anticipo, 'anticipo', 0);
+  const metodoPagoAnticipo = normalizePaymentMethod(payload.metodoPagoAnticipo, 'metodoPagoAnticipo');
+
+  if (anticipo > total) {
+    throw new AppError('El anticipo no puede ser mayor al total', 400);
+  }
+
+  if (anticipo > 0 && !metodoPagoAnticipo) {
+    throw new AppError('Seleccione el metodo de pago del anticipo', 400);
+  }
 
   if (descuento > subtotal) {
     throw new AppError('El descuento no puede ser mayor al subtotal', 400);
   }
 
-  const idNegocio = getAuthBusinessId(auth);
   const ordenes = [];
   for (const currentOrdenId of ordenIds) {
     const orden = await ordenRepository.findById(currentOrdenId, idNegocio);
@@ -373,13 +512,21 @@ async function createCotizacion(payload, auth) {
     manoObra,
     repuestos,
     descuento,
-    total: subtotal - descuento,
+    total,
+    anticipo,
+    pagoFinal: 0,
+    saldoPendiente: Math.max(total - anticipo, 0),
+    metodoPagoAnticipo,
+    metodoPagoSaldo: null,
+    estadoPago: getPaymentState(total, anticipo, 0),
+    fechaAnticipo: anticipo > 0 ? new Date() : null,
+    fechaPagoFinal: anticipo >= total && total > 0 ? new Date() : null,
     observaciones: optionalText(payload.observaciones),
     estado: optionalText(payload.estado) || 'Pendiente',
     fechaCreacion: new Date(),
     idOrden: ordenId,
     idNegocio,
-  }, ordenIds);
+  }, ordenIds, repuestosDetalle);
 
   await notificacionService.notifySystem({
     tipo: 'cotizacion',
@@ -419,9 +566,57 @@ function validateSameClient(ordenes) {
   }
 }
 
+
+async function completarPagoCotizacion(id, payload = {}, auth) {
+  const cotizacion = await cotizacionRepository.findById(id, getAuthBusinessId(auth));
+  if (!cotizacion) {
+    throw new AppError('Cotizacion no encontrada', 404);
+  }
+
+  const saldoActual = Number(cotizacion.saldoPendiente ?? Math.max(Number(cotizacion.total) - Number(cotizacion.anticipo || 0) - Number(cotizacion.pagoFinal || 0), 0));
+  if (saldoActual <= 0) {
+    return mapCotizacion(cotizacion);
+  }
+
+  const monto = parseMoney(payload.monto ?? payload.pagoFinal ?? saldoActual, 'monto', saldoActual);
+  if (monto <= 0) {
+    throw new AppError('El monto de pago debe ser mayor a 0', 400);
+  }
+
+  if (monto > saldoActual) {
+    throw new AppError('El pago no puede ser mayor al saldo pendiente', 400);
+  }
+
+  const metodoPagoSaldo = normalizePaymentMethod(payload.metodoPago || payload.metodoPagoSaldo, 'metodoPagoSaldo');
+  if (!metodoPagoSaldo) {
+    throw new AppError('Seleccione el metodo de pago del saldo', 400);
+  }
+
+  const pagoFinal = Number(cotizacion.pagoFinal || 0) + monto;
+  const saldoPendiente = Math.max(saldoActual - monto, 0);
+  const updatedCotizacion = await cotizacionRepository.update(id, {
+    pagoFinal,
+    saldoPendiente,
+    metodoPagoSaldo,
+    estadoPago: getPaymentState(cotizacion.total, cotizacion.anticipo, pagoFinal),
+    fechaPagoFinal: saldoPendiente <= 0 ? new Date() : cotizacion.fechaPagoFinal,
+  });
+
+  await notificacionService.notifySystem({
+    tipo: 'cotizacion',
+    titulo: 'Pago de cotizacion registrado',
+    mensaje: `Se registro un pago de Bs ${monto.toFixed(2)} para la cotizacion COT-${String(updatedCotizacion.numero).padStart(4, '0')}.`,
+    referenciaId: updatedCotizacion.id,
+    referenciaTipo: 'cotizacion',
+    idNegocio: updatedCotizacion.idNegocio,
+  });
+
+  return mapCotizacion(updatedCotizacion);
+}
 module.exports = {
   listCotizaciones,
   getCotizacion,
   getWhatsappCotizacion,
   createCotizacion,
 };
+

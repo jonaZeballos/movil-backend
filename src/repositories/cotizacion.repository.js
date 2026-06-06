@@ -22,6 +22,11 @@ function includeCotizacion() {
         },
       },
     },
+    repuestosDetalle: {
+      include: {
+        producto: true,
+      },
+    },
     ordenLinks: {
       include: {
         orden: {
@@ -100,13 +105,30 @@ function getLastCotizacion() {
   });
 }
 
-function create(data, ordenIds = []) {
+function update(id, data) {
+  return prisma.cotizacion.update({
+    where: { id },
+    data,
+    include: includeCotizacion(),
+  });
+}
+
+function create(data, ordenIds = [], repuestosDetalle = []) {
   const linkedOrderIds = Array.from(new Set([data.idOrden, ...ordenIds].filter(Boolean)));
 
   return prisma.$transaction(async (tx) => {
     const cotizacion = await tx.cotizacion.create({
       data,
     });
+
+    if (repuestosDetalle.length) {
+      await tx.cotizacionRepuesto.createMany({
+        data: repuestosDetalle.map((item) => ({
+          ...item,
+          idCotizacion: cotizacion.id,
+        })),
+      });
+    }
 
     if (linkedOrderIds.length) {
       await tx.cotizacionOrden.createMany({
@@ -133,3 +155,4 @@ module.exports = {
   getLastCotizacion,
   create,
 };
+

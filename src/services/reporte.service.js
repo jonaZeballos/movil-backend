@@ -1,4 +1,4 @@
-﻿const AppError = require('../utils/appError');
+const AppError = require('../utils/appError');
 const reporteRepository = require('../repositories/reporte.repository');
 
 function parseDate(value, fieldName, endOfDay = false) {
@@ -104,6 +104,25 @@ function mapEquipo(equipo) {
   };
 }
 
+
+function mapRepuestoCotizacion(item) {
+  return {
+    id: item.id,
+    origen: item.origen || 'externo',
+    productoId: item.idProducto || null,
+    nombre: item.nombre,
+    cantidad: Number(item.cantidad || 0),
+    precioUnitario: toNumber(item.precioUnitario),
+    subtotal: toNumber(item.subtotal),
+    producto: item.producto
+      ? {
+          id: item.producto.id,
+          nombre: item.producto.nombre,
+          tipoInventario: item.producto.tipoInventario || null,
+        }
+      : null,
+  };
+}
 function mapCotizacion(cotizacion) {
   return {
     id: cotizacion.id,
@@ -114,9 +133,16 @@ function mapCotizacion(cotizacion) {
     repuestos: toNumber(cotizacion.repuestos),
     descuento: toNumber(cotizacion.descuento),
     total: toNumber(cotizacion.total),
+    anticipo: toNumber(cotizacion.anticipo),
+    pagoFinal: toNumber(cotizacion.pagoFinal),
+    saldoPendiente: toNumber(cotizacion.saldoPendiente),
+    metodoPagoAnticipo: cotizacion.metodoPagoAnticipo || null,
+    metodoPagoSaldo: cotizacion.metodoPagoSaldo || null,
+    estadoPago: cotizacion.estadoPago || 'Sin pago',
     estado: cotizacion.estado || null,
     observaciones: cotizacion.observaciones || null,
     fechaCreacion: cotizacion.fechaCreacion,
+    repuestosDetalle: Array.isArray(cotizacion.repuestosDetalle) ? cotizacion.repuestosDetalle.map(mapRepuestoCotizacion) : [],
   };
 }
 
@@ -161,12 +187,20 @@ function buildServiciosReport(ordenes) {
   const porPrioridad = {};
   let cerradas = 0;
   let totalCotizado = 0;
+  let totalManoObra = 0;
+  let totalRepuestos = 0;
+  let totalCobrado = 0;
+  let totalSaldoPendiente = 0;
 
   for (const orden of ordenes) {
     const estado = orden.estado?.nombre || null;
     incrementCounter(porEstado, estado);
     incrementCounter(porPrioridad, orden.prioridad?.prioridad || null);
     totalCotizado += orden.cotizaciones.reduce((sum, cotizacion) => sum + toNumber(cotizacion.total), 0);
+    totalManoObra += orden.cotizaciones.reduce((sum, cotizacion) => sum + toNumber(cotizacion.manoObra), 0);
+    totalRepuestos += orden.cotizaciones.reduce((sum, cotizacion) => sum + toNumber(cotizacion.repuestos), 0);
+    totalCobrado += orden.cotizaciones.reduce((sum, cotizacion) => sum + toNumber(cotizacion.anticipo) + toNumber(cotizacion.pagoFinal), 0);
+    totalSaldoPendiente += orden.cotizaciones.reduce((sum, cotizacion) => sum + toNumber(cotizacion.saldoPendiente), 0);
 
     if (['entregado', 'listo', 'sin solucion'].includes(String(estado || '').toLowerCase())) {
       cerradas += 1;
@@ -178,6 +212,10 @@ function buildServiciosReport(ordenes) {
     ordenesAbiertas: ordenes.length - cerradas,
     ordenesCerradas: cerradas,
     totalCotizado,
+    totalManoObra,
+    totalRepuestos,
+    totalCobrado,
+    totalSaldoPendiente,
     porEstado: toArrayCounter(porEstado),
     porPrioridad: toArrayCounter(porPrioridad),
     ordenes: ordenes.map(mapOrdenResumen),
@@ -363,3 +401,4 @@ module.exports = {
   getReporteVentas,
   getReporteInventario,
 };
+

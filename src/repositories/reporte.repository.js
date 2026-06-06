@@ -1,4 +1,4 @@
-﻿const prisma = require('../utils/prismaClient');
+const prisma = require('../utils/prismaClient');
 
 function buildDateFilter(field, desde, hasta) {
   if (!desde && !hasta) {
@@ -54,7 +54,13 @@ function listOrdenes(desde, hasta, idNegocio) {
           },
         },
       },
-      cotizaciones: true,
+      cotizaciones: {
+        include: {
+          repuestosDetalle: {
+            include: { producto: true },
+          },
+        },
+      },
     },
     orderBy: {
       codigo: 'desc',
