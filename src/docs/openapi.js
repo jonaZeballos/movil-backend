@@ -1204,6 +1204,20 @@ const options = {
           },
         },
       },
+      '/api/notificaciones/{id}': {
+        delete: {
+          tags: ['Notificaciones'],
+          summary: 'Eliminar notificacion (HU20)',
+          security: [{ bearerAuth: [] }],
+          parameters: [
+            { in: 'path', name: 'id', required: true, schema: { type: 'string' } },
+          ],
+          responses: {
+            200: { description: 'Notificacion eliminada correctamente' },
+            404: { description: 'Notificacion no encontrada' },
+          },
+        },
+      },
       '/api/notificaciones/{id}/leida': {
         patch: {
           tags: ['Notificaciones'],

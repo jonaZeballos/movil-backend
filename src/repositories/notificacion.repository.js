@@ -56,6 +56,12 @@ function markManyAsRead(ids = []) {
   });
 }
 
+function remove(id) {
+  return prisma.notificacion.delete({
+    where: { id },
+  });
+}
+
 module.exports = {
   list,
   findById,
@@ -63,4 +69,6 @@ module.exports = {
   markAsRead,
   markAllAsRead,
   markManyAsRead,
+  remove,
 };
+

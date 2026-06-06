@@ -71,6 +71,7 @@ async function listNotificaciones(query = {}, auth) {
 
   return notificaciones
     .filter((notificacion) => isNotificationVisibleForRole(notificacion, role))
+    .filter((notificacion) => notificacion.tipo !== 'stock_bajo')
     .map(mapNotificacion);
 }
 
@@ -128,9 +129,23 @@ async function markAllNotificacionesAsRead(auth) {
   };
 }
 
+async function deleteNotificacion(id, auth) {
+  const existing = await notificacionRepository.findById(id, getAuthBusinessId(auth));
+  if (!existing) {
+    throw new AppError('Notificacion no encontrada', 404);
+  }
+
+  if (!isNotificationVisibleForRole(existing, getAuthRole(auth))) {
+    throw new AppError('Notificacion no encontrada', 404);
+  }
+
+  await notificacionRepository.remove(id);
+}
+
 async function notifySystem(payload) {
   try {
     if (!payload.idNegocio) return null;
+    if (payload.tipo === 'stock_bajo') return null;
     return await createNotificacion(payload, { idNegocio: payload.idNegocio });
   } catch (error) {
     return null;
@@ -142,6 +157,8 @@ module.exports = {
   createNotificacion,
   markNotificacionAsRead,
   markAllNotificacionesAsRead,
+  deleteNotificacion,
   notifySystem,
   mapNotificacion,
 };
+

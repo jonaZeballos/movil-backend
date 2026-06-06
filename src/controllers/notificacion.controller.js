@@ -52,9 +52,23 @@ async function marcarTodasNotificacionesLeidas(req, res, next) {
   }
 }
 
+async function eliminarNotificacion(req, res, next) {
+  try {
+    await notificacionService.deleteNotificacion(req.params.id, req.auth);
+
+    return res.json({
+      mensaje: 'Notificacion eliminada correctamente',
+    });
+  } catch (error) {
+    return next(error);
+  }
+}
+
 module.exports = {
   listarNotificaciones,
   registrarNotificacion,
   marcarNotificacionLeida,
   marcarTodasNotificacionesLeidas,
+  eliminarNotificacion,
 };
+
