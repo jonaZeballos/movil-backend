@@ -330,6 +330,7 @@ model Notificacion {
   referenciaId   String?  @map("referencia_id") @db.VarChar(1000)
   referenciaTipo String?  @map("referencia_tipo") @db.VarChar(50)
   fechaCreacion  DateTime @default(now()) @map("fecha_creacion") @db.Date
+  fechaHoraCreacion DateTime? @map("fecha_hora_creacion") @db.Timestamptz(6)
   idNegocio      String   @map("id_negocio") @db.VarChar(1000)
   negocio        Negocio  @relation(fields: [idNegocio], references: [id])
 

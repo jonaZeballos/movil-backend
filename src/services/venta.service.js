@@ -302,19 +302,6 @@ async function createVenta(payload, auth) {
       idNegocio,
     });
 
-    for (const detalle of venta.detalles) {
-      if (detalle.producto && detalle.producto.stock <= detalle.producto.stockMinimo) {
-        await notificacionService.notifySystem({
-          tipo: 'stock_bajo',
-          titulo: 'Stock bajo',
-          mensaje: `El producto ${detalle.producto.nombre} tiene stock ${detalle.producto.stock}.`,
-          referenciaId: detalle.producto.id,
-          referenciaTipo: 'producto',
-          idNegocio,
-        });
-      }
-    }
-
     return mapVenta(venta);
   } catch (error) {
     throw new AppError(error.message || 'No se pudo registrar la venta', error.statusCode || 500);

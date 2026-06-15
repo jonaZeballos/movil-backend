@@ -10,6 +10,15 @@ function getAuthBusinessId(auth) {
   return auth?.idNegocio || auth?.negocioId || null;
 }
 
+function requireAuthBusinessId(auth) {
+  const idNegocio = getAuthBusinessId(auth);
+  if (!idNegocio) {
+    throw new AppError('No se pudo identificar el negocio del usuario autenticado', 401);
+  }
+
+  return idNegocio;
+}
+
 function getAuthRole(auth) {
   return String(auth?.rol || auth?.tipoUsuario || auth?.role || '').toLowerCase();
 }
@@ -24,7 +33,7 @@ function isNotificationVisibleForRole(notificacion, role) {
   }
 
   if (role === 'ventas') {
-    return ['venta', 'stock_bajo', 'sistema', 'system'].includes(tipo);
+    return ['venta', 'sistema', 'system'].includes(tipo);
   }
 
   return false;
@@ -59,30 +68,31 @@ function mapNotificacion(notificacion) {
     referenciaId: notificacion.referenciaId,
     referenciaTipo: notificacion.referenciaTipo,
     idNegocio: notificacion.idNegocio || null,
-    fechaCreacion: notificacion.fechaCreacion,
+    fechaCreacion: notificacion.fechaHoraCreacion || notificacion.fechaCreacion,
+    fechaHoraCreacion: notificacion.fechaHoraCreacion || null,
   };
 }
 
 async function listNotificaciones(query = {}, auth) {
   const leida = parseBoolean(query.leida);
   const tipo = optionalText(query.tipo);
-  const notificaciones = await notificacionRepository.list({ leida, tipo, idNegocio: getAuthBusinessId(auth) });
+  const notificaciones = await notificacionRepository.list({ leida, tipo, idNegocio: requireAuthBusinessId(auth) });
   const role = getAuthRole(auth);
 
   return notificaciones
     .filter((notificacion) => isNotificationVisibleForRole(notificacion, role))
-    .filter((notificacion) => notificacion.tipo !== 'stock_bajo')
+    .filter((notificacion) => String(notificacion.tipo || '').toLowerCase() !== 'stock_bajo')
     .map(mapNotificacion);
 }
 
 async function createNotificacion(payload, auth) {
-  const tipo = normalizeText(payload.tipo, 'tipo');
+  const tipo = normalizeText(payload.tipo, 'tipo').toLowerCase();
   const titulo = normalizeText(payload.titulo, 'titulo');
   const mensaje = normalizeText(payload.mensaje, 'mensaje');
-  const idNegocio = getAuthBusinessId(auth);
+  const idNegocio = requireAuthBusinessId(auth);
 
-  if (!idNegocio) {
-    throw new AppError('No se pudo identificar el negocio del usuario autenticado', 401);
+  if (tipo === 'stock_bajo') {
+    throw new AppError('Las alertas de stock bajo no se guardan como notificaciones', 400);
   }
 
   const notificacion = await notificacionRepository.create({
@@ -101,7 +111,7 @@ async function createNotificacion(payload, auth) {
 }
 
 async function markNotificacionAsRead(id, auth) {
-  const existing = await notificacionRepository.findById(id, getAuthBusinessId(auth));
+  const existing = await notificacionRepository.findById(id, requireAuthBusinessId(auth));
   if (!existing) {
     throw new AppError('Notificacion no encontrada', 404);
   }
@@ -115,10 +125,7 @@ async function markNotificacionAsRead(id, auth) {
 }
 
 async function markAllNotificacionesAsRead(auth) {
-  const idNegocio = getAuthBusinessId(auth);
-  if (!idNegocio) {
-    throw new AppError('No se pudo identificar el negocio del usuario autenticado', 401);
-  }
+  const idNegocio = requireAuthBusinessId(auth);
 
   const notificaciones = await notificacionRepository.list({ leida: false, idNegocio });
   const visibles = notificaciones.filter((notificacion) => isNotificationVisibleForRole(notificacion, getAuthRole(auth)));
@@ -130,7 +137,7 @@ async function markAllNotificacionesAsRead(auth) {
 }
 
 async function deleteNotificacion(id, auth) {
-  const existing = await notificacionRepository.findById(id, getAuthBusinessId(auth));
+  const existing = await notificacionRepository.findById(id, requireAuthBusinessId(auth));
   if (!existing) {
     throw new AppError('Notificacion no encontrada', 404);
   }
@@ -143,13 +150,13 @@ async function deleteNotificacion(id, auth) {
 }
 
 async function notifySystem(payload) {
-  try {
-    if (!payload.idNegocio) return null;
-    if (payload.tipo === 'stock_bajo') return null;
-    return await createNotificacion(payload, { idNegocio: payload.idNegocio });
-  } catch (error) {
-    return null;
+  if (!payload.idNegocio) {
+    throw new AppError('No se pudo identificar el negocio para registrar la notificacion', 500);
   }
+
+  if (String(payload.tipo || '').toLowerCase() === 'stock_bajo') return null;
+
+  return createNotificacion(payload, { idNegocio: payload.idNegocio });
 }
 
 module.exports = {
