@@ -14,6 +14,7 @@ const {
 } = require('../utils/validators');
 const clienteRepository = require('../repositories/cliente.repository');
 const usuarioRepository = require('../repositories/usuario.repository');
+const notificacionService = require('./notificacion.service');
 
 function normalizeText(value, fieldName) {
   if (typeof value !== 'string') {
@@ -385,6 +386,15 @@ async function createCliente(payload, auth) {
         idNegocio,
       },
     },
+  });
+
+  await notificacionService.notifySystem({
+    tipo: 'sistema',
+    titulo: 'Cliente registrado',
+    mensaje: `Se registro el cliente ${razonSocial}.`,
+    referenciaId: createdClient.cliente.idUsuario,
+    referenciaTipo: 'cliente',
+    idNegocio,
   });
 
   return mapClient({

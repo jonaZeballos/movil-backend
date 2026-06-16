@@ -2,6 +2,7 @@ const { randomUUID } = require('crypto');
 const AppError = require('../utils/appError');
 const clienteRepository = require('../repositories/cliente.repository');
 const equipoRepository = require('../repositories/equipo.repository');
+const notificacionService = require('./notificacion.service');
 
 function normalizeText(value, fieldName) {
   if (typeof value !== 'string') {
@@ -128,6 +129,15 @@ async function createEquipo(payload, auth) {
     idCliente: cliente.idUsuario,
     idTipoEquipo: tipo.id,
     idModelo: modelo.id,
+    idNegocio,
+  });
+
+  await notificacionService.notifySystem({
+    tipo: 'sistema',
+    titulo: 'Equipo registrado',
+    mensaje: `Se registro un equipo ${tipo.nombre} ${marca.nombre} ${modelo.nombreModelo}.`,
+    referenciaId: equipo.id,
+    referenciaTipo: 'equipo',
     idNegocio,
   });
 
